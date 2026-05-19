@@ -21,7 +21,7 @@ export interface IProjectService {
 export class ProjectServiceImpl implements IProjectService {
   constructor(
     private readonly projectRepository: IProjectRepository,
-    private readonly userId = 'default-user'
+    private readonly userId = 'system_default_user'
   ) {}
 
   async listProjects(): Promise<TProject[]> {

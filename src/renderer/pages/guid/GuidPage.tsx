@@ -85,7 +85,12 @@ const GuidPage: React.FC = () => {
 
   const resetAssistantRequested =
     (location.state as { resetAssistant?: boolean; projectId?: string } | null)?.resetAssistant === true;
-  const projectId = (location.state as { projectId?: string } | null)?.projectId;
+  const initialProjectIdRef = useRef<string | undefined>(
+    (location.state as { projectId?: string } | null)?.projectId ??
+      window.sessionStorage.getItem('aionui:create-project-id') ??
+      undefined
+  );
+  const projectId = initialProjectIdRef.current;
   const agentSelection = useGuidAgentSelection({
     modelList: modelSelection.modelList,
     isGoogleAuth: modelSelection.isGoogleAuth,
@@ -356,6 +361,19 @@ const GuidPage: React.FC = () => {
     setIsDescriptionExpanded(false);
   }, [guidInput.setDir, guidInput.setFiles, guidInput.setInput, guidInput.setLoading, location.key, location.state]);
 
+  useEffect(() => {
+    if (!projectId || (location.state as { projectId?: string } | null)?.projectId === projectId) {
+      return;
+    }
+    navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: {
+        ...(location.state as Record<string, unknown> | null),
+        projectId,
+      },
+    });
+  }, [projectId, location.pathname, location.search, location.hash, location.state, navigate]);
+
   // Clear resetAssistant from location.state after the hook has consumed it,
   // so that re-renders don't re-trigger the reset logic.
   //
@@ -366,8 +384,11 @@ const GuidPage: React.FC = () => {
   // the dev server (which has no SPA fallback) and 404.
   useEffect(() => {
     if (!resetAssistantRequested) return;
-    navigate(`${location.pathname}${location.search}${location.hash}`, { replace: true, state: null });
-  }, [resetAssistantRequested, location.pathname, location.search, location.hash, navigate]);
+    navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: projectId ? { projectId } : null,
+    });
+  }, [projectId, resetAssistantRequested, location.pathname, location.search, location.hash, navigate]);
 
   useEffect(() => {
     const node = descriptionTextRef.current;

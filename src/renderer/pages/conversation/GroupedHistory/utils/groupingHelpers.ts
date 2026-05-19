@@ -150,8 +150,12 @@ export const buildGroupedHistory = (
     (conversation) => !isConversationPinned(conversation) && !isCronJobConversation(conversation)
   );
 
+  const assignedProjectIds = new Set(normalConversations.map((conversation) => conversation.projectId).filter(Boolean));
+  const unassignedProjects = projects.filter((project) => !assignedProjectIds.has(project.id));
+
   return {
     pinnedConversations,
+    unassignedProjects,
     timelineSections: groupConversationsByWorkspace(normalConversations, projects, t),
   };
 };

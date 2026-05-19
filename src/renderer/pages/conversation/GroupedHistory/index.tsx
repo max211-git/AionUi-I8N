@@ -11,8 +11,8 @@ import DirectorySelectionModal from '@/renderer/components/settings/DirectorySel
 import { CronJobIndicator, useCronJobsMap } from '@/renderer/pages/cron';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Button, Empty, Input, Message, Modal } from '@arco-design/web-react';
-import { FolderOpen, FolderPlus } from '@icon-park/react';
+import { Button, Dropdown, Empty, Input, Menu, Message, Modal } from '@arco-design/web-react';
+import { FolderOpen, FolderPlus, MoreOne } from '@icon-park/react';
 import classNames from 'classnames';
 import { Down, Right } from '@icon-park/react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -72,6 +72,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     hasCompletionUnread,
     expandedWorkspaces,
     pinnedConversations,
+    unassignedProjects,
     timelineSections,
     handleToggleWorkspace,
   } = useConversations();
@@ -281,6 +282,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
 
   const handleCreateConversationInProject = useCallback(
     async (project: TProject) => {
+      window.sessionStorage.setItem('aionui:create-project-id', project.id);
       navigate('/', {
         state: {
           projectId: project.id,
@@ -303,46 +305,52 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       <div key={project.id} className='mb-2'>
         <Button
           type='text'
-          className='group !mb-1 !w-full !justify-between !px-2 !text-left'
+          className='group !mb-1 !w-full !px-2 !text-left !text-t-primary hover:!bg-fill-3'
           onClick={() => toggleSection(sectionKey)}
         >
-          <span className='flex items-center gap-2 truncate'>
-            <FolderOpen className='text-[16px]' />
-            <span className='truncate font-medium'>{project.name}</span>
-          </span>
-          <span className='flex items-center gap-8px text-text-3 text-xs'>
-            <Button
-              type='text'
-              size='mini'
-              onClick={(event) => {
-                event.stopPropagation();
-                void handleCreateConversationInProject(project);
-              }}
+          <span className='flex min-w-0 w-full items-center gap-8px'>
+            <FolderOpen className='text-[16px] shrink-0 text-t-secondary' />
+            <span className='min-w-0 flex-1 truncate font-medium text-t-primary'>{project.name}</span>
+            <span className='shrink-0 rounded-10px bg-fill-3 px-6px py-1px text-11px leading-16px text-t-secondary'>
+              {projectConversations.length}
+            </span>
+            <Dropdown
+              droplist={
+                <Menu
+                  onClickMenuItem={(key) => {
+                    if (key === 'new-chat') {
+                      void handleCreateConversationInProject(project);
+                      return;
+                    }
+                    if (key === 'edit') {
+                      handleStartEditProject(project);
+                      return;
+                    }
+                    if (key === 'delete') {
+                      handleDeleteProject(project);
+                    }
+                  }}
+                >
+                  <Menu.Item key='new-chat'>{t('conversation.history.newChatInProject')}</Menu.Item>
+                  <Menu.Item key='edit'>{t('conversation.history.editProject')}</Menu.Item>
+                  <Menu.Item key='delete'>
+                    <span className='text-[rgb(var(--warning-6))]'>{t('conversation.history.deleteProject')}</span>
+                  </Menu.Item>
+                </Menu>
+              }
+              trigger='click'
+              position='br'
+              getPopupContainer={() => document.body}
             >
-              {t('conversation.history.newChatInProject')}
-            </Button>
-            <Button
-              type='text'
-              size='mini'
-              onClick={(event) => {
-                event.stopPropagation();
-                handleStartEditProject(project);
-              }}
-            >
-              {t('conversation.history.editProject')}
-            </Button>
-            <Button
-              type='text'
-              size='mini'
-              status='danger'
-              onClick={(event) => {
-                event.stopPropagation();
-                handleDeleteProject(project);
-              }}
-            >
-              {t('conversation.history.deleteProject')}
-            </Button>
-            <span>{projectConversations.length}</span>
+              <span
+                className='flex-center h-24px w-24px shrink-0 rd-6px text-t-secondary hover:bg-fill-2 hover:text-t-primary'
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
+              >
+                <MoreOne theme='outline' size='16' />
+              </span>
+            </Dropdown>
           </span>
         </Button>
         {!isCollapsed && <div>{projectConversations.map((conversation) => renderConversation(conversation))}</div>}
@@ -574,12 +582,38 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           <Button
             type='text'
             long
-            icon={<FolderPlus className='text-[16px]' />}
+            className='!justify-start !px-10px !text-[rgb(var(--warning-5))] hover:!bg-fill-3'
             onClick={() => setProjectModalVisible(true)}
           >
-            {t('conversation.history.createProject')}
+            <span className='flex min-w-0 items-center gap-8px'>
+              <FolderPlus className='text-[16px] shrink-0' />
+              <span className='truncate font-medium'>{t('conversation.history.createProject')}</span>
+            </span>
           </Button>
         </div>
+
+        {unassignedProjects.length > 0 && (
+          <div className='mb-8px min-w-0'>
+            {!collapsed && (
+              <div
+                className='flex items-center px-12px py-8px cursor-pointer select-none sticky top-0 z-10 bg-fill-2'
+                onClick={() => toggleSection('projects')}
+              >
+                <span className='text-13px text-t-secondary font-bold leading-20px'>
+                  {t('conversation.history.projectsSection')}
+                </span>
+                <div className='ml-auto h-20px w-20px rd-4px flex items-center justify-center hover:bg-fill-3 transition-all shrink-0 text-t-secondary'>
+                  {collapsedSections.has('projects') ? (
+                    <Right theme='outline' size={12} />
+                  ) : (
+                    <Down theme='outline' size={12} />
+                  )}
+                </div>
+              </div>
+            )}
+            {!collapsedSections.has('projects') && unassignedProjects.map((project) => renderProjectGroup(project, []))}
+          </div>
+        )}
 
         {timelineSections.map((section) => (
           <div key={section.timeline} className='mb-8px min-w-0'>

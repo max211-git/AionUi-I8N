@@ -13,20 +13,49 @@ export function initProjectBridge(projectService: IProjectService): void {
   };
 
   ipcBridge.project.create.provider(async ({ name, rootPath }) => {
-    const created = await projectService.createProject({ name, rootPath });
-    emitListChanged(created.id, 'created');
-    return created;
+    try {
+      const created = await projectService.createProject({ name, rootPath });
+      emitListChanged(created.id, 'created');
+      return created;
+    } catch (error) {
+      console.error('[projectBridge] Failed to create project:', error);
+      throw error;
+    }
   });
-  ipcBridge.project.list.provider(async () => projectService.listProjects());
-  ipcBridge.project.get.provider(async ({ id }) => projectService.getProject(id));
+  ipcBridge.project.list.provider(async () => {
+    try {
+      return await projectService.listProjects();
+    } catch (error) {
+      console.error('[projectBridge] Failed to list projects:', error);
+      throw error;
+    }
+  });
+  ipcBridge.project.get.provider(async ({ id }) => {
+    try {
+      return await projectService.getProject(id);
+    } catch (error) {
+      console.error('[projectBridge] Failed to get project:', error);
+      throw error;
+    }
+  });
   ipcBridge.project.update.provider(async ({ id, updates }) => {
-    const success = await projectService.updateProject(id, updates);
-    if (success) emitListChanged(id, 'updated');
-    return success;
+    try {
+      const success = await projectService.updateProject(id, updates);
+      if (success) emitListChanged(id, 'updated');
+      return success;
+    } catch (error) {
+      console.error('[projectBridge] Failed to update project:', error);
+      throw error;
+    }
   });
   ipcBridge.project.remove.provider(async ({ id }) => {
-    const success = await projectService.removeProject(id);
-    if (success) emitListChanged(id, 'deleted');
-    return success;
+    try {
+      const success = await projectService.removeProject(id);
+      if (success) emitListChanged(id, 'deleted');
+      return success;
+    } catch (error) {
+      console.error('[projectBridge] Failed to remove project:', error);
+      throw error;
+    }
   });
 }

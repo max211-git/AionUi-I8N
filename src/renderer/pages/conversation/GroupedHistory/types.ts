@@ -33,6 +33,7 @@ export type TimelineSection = {
 
 export type GroupedHistoryResult = {
   pinnedConversations: TChatConversation[];
+  unassignedProjects: TProject[];
   timelineSections: TimelineSection[];
 };
 

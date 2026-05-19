@@ -38,9 +38,6 @@ export const useAcpInitialMessage = ({
 
     if (!storedMessage) return;
 
-    // Clear immediately to prevent duplicate sends (e.g., if component remounts while sendMessage is pending)
-    sessionStorage.removeItem(storageKey);
-
     const sendInitialMessage = async () => {
       try {
         const initialMessage = JSON.parse(storedMessage);
@@ -63,6 +60,7 @@ export const useAcpInitialMessage = ({
 
         if (result && result.success === true) {
           // Initial message sent successfully
+          sessionStorage.removeItem(storageKey);
           emitter.emit('chat.history.refresh');
         } else {
           // Handle send failure

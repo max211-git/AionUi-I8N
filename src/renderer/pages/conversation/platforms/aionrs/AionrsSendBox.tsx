@@ -269,11 +269,11 @@ const AionrsSendBox: React.FC<{
       if (!storedMessage) return;
 
       sessionStorage.setItem(processedKey, '1');
-      sessionStorage.removeItem(storageKey);
 
       try {
         const { input, files: initialFiles } = JSON.parse(storedMessage);
         await executeCommand({ input, files: initialFiles || [] });
+        sessionStorage.removeItem(storageKey);
       } catch (error) {
         console.error('[AionrsSendBox] Failed to send initial message:', error);
         sessionStorage.removeItem(processedKey);

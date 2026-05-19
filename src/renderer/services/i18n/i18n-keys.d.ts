@@ -344,6 +344,7 @@ export type I18nKey =
   | 'conversation.history.projectRootPlaceholder'
   | 'conversation.history.projectUpdateFailed'
   | 'conversation.history.projectUpdated'
+  | 'conversation.history.projectsSection'
   | 'conversation.history.recent7Days'
   | 'conversation.history.recents'
   | 'conversation.history.removeFromProject'
