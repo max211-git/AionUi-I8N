@@ -66,6 +66,7 @@ export type GuidSendDeps = {
   closeAllTabs: () => void;
   openTab: (conversation: TChatConversation) => void;
   t: TFunction;
+  projectId?: string;
 };
 
 export type GuidSendResult = {
@@ -112,6 +113,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     closeAllTabs,
     openTab,
     t,
+    projectId,
   } = deps;
   const sendingRef = useRef(false);
 
@@ -154,7 +156,8 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
           name: input,
           agentName: agentInfo?.name,
           presetAssistantId,
-          workspace: finalWorkspace,
+          workspace: isCustomWorkspace ? finalWorkspace : '',
+          projectId,
           model: placeholderModel,
           customAgentId: agentInfo?.customAgentId,
           customWorkspace: isCustomWorkspace,
@@ -217,7 +220,8 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
         name: input,
         agentName: openclawAgentInfo?.name,
         presetAssistantId,
-        workspace: finalWorkspace,
+        workspace: isCustomWorkspace ? finalWorkspace : '',
+        projectId,
         model: currentModel!,
         cliPath: openclawAgentInfo?.cliPath,
         customAgentId: openclawAgentInfo?.customAgentId,
@@ -276,7 +280,8 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
         name: input,
         agentName: nanobotAgentInfo?.name,
         presetAssistantId,
-        workspace: finalWorkspace,
+        workspace: isCustomWorkspace ? finalWorkspace : '',
+        projectId,
         model: currentModel!,
         customAgentId: nanobotAgentInfo?.customAgentId,
         customWorkspace: isCustomWorkspace,
@@ -329,9 +334,10 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
           type: 'aionrs',
           name: input,
           model: currentModel,
+          projectId,
           extra: {
             defaultFiles: files,
-            workspace: finalWorkspace,
+            workspace: isCustomWorkspace ? finalWorkspace : '',
             customWorkspace: isCustomWorkspace,
             presetRules: isPreset ? presetRules : undefined,
             enabledSkills: isPreset ? enabledSkills : undefined,
@@ -395,7 +401,8 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
         name: input,
         agentName: acpAgentInfo?.name,
         presetAssistantId,
-        workspace: finalWorkspace,
+        workspace: isCustomWorkspace ? finalWorkspace : '',
+        projectId,
         model: currentModel!,
         cliPath: acpAgentInfo?.cliPath,
         customAgentId: acpAgentInfo?.customAgentId,

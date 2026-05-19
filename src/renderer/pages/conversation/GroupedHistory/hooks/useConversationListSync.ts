@@ -5,6 +5,7 @@
  */
 
 import { ipcBridge } from '@/common';
+import type { TProject } from '@/common/adapter/ipcBridge';
 import type { TChatConversation } from '@/common/config/storage';
 import { addEventListener } from '@/renderer/utils/emitter';
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
@@ -52,6 +53,7 @@ const isTerminalTurnState = (state: string): boolean => {
 
 type ConversationListSyncSnapshot = {
   conversations: TChatConversation[];
+  projects: TProject[];
   generatingConversationIds: Set<string>;
   completionUnreadConversationIds: Set<string>;
 };
@@ -60,12 +62,14 @@ const listeners = new Set<() => void>();
 
 let isStoreInitialized = false;
 let conversationsState: TChatConversation[] = [];
+let projectsState: TProject[] = [];
 let generatingConversationIdsState = new Set<string>();
 let completionUnreadConversationIdsState = new Set<string>();
 let conversationIdsState = new Set<string>();
 let activeConversationIdState: string | null = null;
 let snapshotState: ConversationListSyncSnapshot = {
   conversations: conversationsState,
+  projects: projectsState,
   generatingConversationIds: generatingConversationIdsState,
   completionUnreadConversationIds: completionUnreadConversationIdsState,
 };
@@ -73,6 +77,7 @@ let snapshotState: ConversationListSyncSnapshot = {
 const emitStoreChange = () => {
   snapshotState = {
     conversations: conversationsState,
+    projects: projectsState,
     generatingConversationIds: generatingConversationIdsState,
     completionUnreadConversationIds: completionUnreadConversationIdsState,
   };
@@ -89,9 +94,12 @@ const subscribeConversationListSync = (listener: () => void) => {
 const getConversationListSyncSnapshot = (): ConversationListSyncSnapshot => snapshotState;
 
 const refreshConversations = () => {
-  void ipcBridge.database.getUserConversations
-    .invoke({ page: 0, pageSize: 10000 })
-    .then((data) => {
+  void Promise.all([
+    ipcBridge.database.getUserConversations.invoke({ page: 0, pageSize: 10000 }),
+    ipcBridge.project.list.invoke(),
+  ])
+    .then(([data, projects]) => {
+      projectsState = projects;
       if (data && Array.isArray(data)) {
         const filteredData = data.filter((conv) => {
           const extra = conv.extra as { isHealthCheck?: boolean; teamId?: string } | undefined;
@@ -113,6 +121,7 @@ const refreshConversations = () => {
     .catch((error) => {
       console.error('[WorkspaceGroupedHistory] Failed to load conversations:', error);
       conversationsState = [];
+      projectsState = [];
       conversationIdsState = new Set();
       emitStoreChange();
     });
@@ -178,6 +187,9 @@ const initializeConversationListSyncStore = () => {
     }
     refreshConversations();
   });
+  ipcBridge.project.listChanged.on(() => {
+    refreshConversations();
+  });
   ipcBridge.conversation.responseStream.on((message) => {
     const conversationId = message.conversation_id;
     if (!conversationId) {
@@ -215,7 +227,7 @@ export const useConversationListSync = () => {
     initializeConversationListSyncStore();
   }, []);
 
-  const { conversations, generatingConversationIds, completionUnreadConversationIds } = useSyncExternalStore(
+  const { conversations, projects, generatingConversationIds, completionUnreadConversationIds } = useSyncExternalStore(
     subscribeConversationListSync,
     getConversationListSyncSnapshot,
     getConversationListSyncSnapshot
@@ -245,6 +257,7 @@ export const useConversationListSync = () => {
 
   return {
     conversations,
+    projects,
     isConversationGenerating,
     hasCompletionUnread,
     clearCompletionUnread,

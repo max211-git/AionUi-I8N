@@ -225,6 +225,10 @@ export class AionUIDatabase {
     executeMigrations(this.db, from, to);
   }
 
+  getDriver(): ISqliteDriver {
+    return this.db;
+  }
+
   private ensureSystemUser(): void {
     const now = Date.now();
     this.db
@@ -267,14 +271,6 @@ export class AionUIDatabase {
       };
     }
   }
-  /**
-   * Expose the underlying SQLite driver for repositories that need raw SQL access.
-   * Prefer using dedicated methods on AionUIDatabase where possible.
-   */
-  getDriver(): ISqliteDriver {
-    return this.db;
-  }
-
   /**
    * Close database connection
    */
@@ -541,8 +537,8 @@ export class AionUIDatabase {
       const row = conversationToRow(conversation, userId || this.defaultUserId);
 
       const stmt = this.db.prepare(`
-        INSERT INTO conversations (id, user_id, name, type, extra, model, status, source, channel_chat_id, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO conversations (id, user_id, name, type, extra, model, project_id, status, source, channel_chat_id, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       stmt.run(
@@ -552,6 +548,7 @@ export class AionUIDatabase {
         row.type,
         row.extra,
         row.model,
+        row.project_id ?? null,
         row.status,
         row.source,
         row.channel_chat_id ?? null,
@@ -763,12 +760,13 @@ export class AionUIDatabase {
         SET name       = ?,
             extra      = ?,
             model      = ?,
+            project_id = ?,
             status     = ?,
             updated_at = ?
         WHERE id = ?
       `);
 
-      stmt.run(row.name, row.extra, row.model, row.status, row.updated_at, conversationId);
+      stmt.run(row.name, row.extra, row.model, row.project_id ?? null, row.status, row.updated_at, conversationId);
 
       return {
         success: true,

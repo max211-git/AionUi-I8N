@@ -1213,6 +1213,40 @@ const migration_v26: IMigration = {
   },
 };
 
+const migration_v27: IMigration = {
+  version: 27,
+  name: 'Add projects support',
+  up: (db) => {
+    const conversationColumns = new Set(
+      (db.pragma('table_info(conversations)') as Array<{ name: string }>).map((c) => c.name)
+    );
+    if (!conversationColumns.has('project_id')) {
+      db.exec('ALTER TABLE conversations ADD COLUMN project_id TEXT');
+    }
+
+    db.exec(`CREATE TABLE IF NOT EXISTS projects (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      root_path TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_project_id ON conversations(project_id)');
+    console.log('[Migration v27] Added projects table and conversation project_id column');
+  },
+  down: (db) => {
+    db.exec('DROP INDEX IF EXISTS idx_conversations_project_id');
+    db.exec('DROP INDEX IF EXISTS idx_projects_updated_at');
+    db.exec('DROP INDEX IF EXISTS idx_projects_user_id');
+    db.exec('DROP TABLE IF EXISTS projects');
+    console.warn('[Migration v27] Rollback partially skipped: project_id column remains on conversations.');
+  },
+};
+
 /**
  * All migrations in order
  */
@@ -1222,7 +1256,7 @@ export const ALL_MIGRATIONS: IMigration[] = [
   migration_v7, migration_v8, migration_v9, migration_v10, migration_v11, migration_v12,
   migration_v13, migration_v14, migration_v15, migration_v16, migration_v17, migration_v18,
   migration_v19, migration_v20, migration_v21, migration_v22, migration_v23, migration_v24,
-  migration_v25, migration_v26,
+  migration_v25, migration_v26, migration_v27,
 ];
 
 /**

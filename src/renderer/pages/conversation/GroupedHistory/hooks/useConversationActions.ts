@@ -244,6 +244,32 @@ export const useConversationActions = ({
     [t]
   );
 
+  const handleAssignProject = useCallback(
+    async (conversation: TChatConversation, projectId?: string) => {
+      try {
+        const success = await ipcBridge.conversation.update.invoke({
+          id: conversation.id,
+          updates: {
+            projectId,
+          } as Partial<TChatConversation>,
+        });
+
+        if (success) {
+          emitter.emit('chat.history.refresh');
+          Message.success(
+            projectId ? t('conversation.history.projectAssigned') : t('conversation.history.projectRemoved')
+          );
+        } else {
+          Message.error(t('conversation.history.projectAssignFailed'));
+        }
+      } catch (error) {
+        console.error('Failed to assign conversation project:', error);
+        Message.error(t('conversation.history.projectAssignFailed'));
+      }
+    },
+    [t]
+  );
+
   const handleMenuVisibleChange = useCallback((conversationId: string, visible: boolean) => {
     setDropdownVisibleId(visible ? conversationId : null);
   }, []);
@@ -265,6 +291,7 @@ export const useConversationActions = ({
     handleRenameConfirm,
     handleRenameCancel,
     handleTogglePin,
+    handleAssignProject,
     handleMenuVisibleChange,
     handleOpenMenu,
   };

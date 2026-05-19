@@ -6,6 +6,7 @@
 
 import type { IConversationService, CreateConversationParams, MigrateConversationParams } from './IConversationService';
 import type { IConversationRepository } from '@process/services/database/IConversationRepository';
+import type { IProjectRepository } from '@process/services/database/IProjectRepository';
 import type { TChatConversation } from '@/common/config/storage';
 import { uuid } from '@/common/utils';
 import { cronService } from './cron/cronServiceSingleton';
@@ -23,7 +24,10 @@ import {
  * Delegates persistence to an injected IConversationRepository.
  */
 export class ConversationServiceImpl implements IConversationService {
-  constructor(private readonly repo: IConversationRepository) {}
+  constructor(
+    private readonly repo: IConversationRepository,
+    private readonly projectRepo?: IProjectRepository
+  ) {}
 
   async getConversation(id: string): Promise<TChatConversation | undefined> {
     return this.repo.getConversation(id);
@@ -123,62 +127,88 @@ export class ConversationServiceImpl implements IConversationService {
 
   async createConversation(params: CreateConversationParams): Promise<TChatConversation> {
     let conversation: TChatConversation;
+    const explicitWorkspace = params.extra.workspace;
+    let projectRootPath: string | undefined;
 
-    switch (params.type) {
+    if (params.projectId && this.projectRepo) {
+      const project = await this.projectRepo.get('default-user', params.projectId);
+      if (!project) {
+        throw new Error(`Project not found: ${params.projectId}`);
+      }
+      projectRootPath = project.rootPath;
+    }
+
+    const resolvedWorkspace = explicitWorkspace ?? projectRootPath;
+    const resolvedParams: CreateConversationParams = {
+      ...params,
+      extra: {
+        ...params.extra,
+        workspace: resolvedWorkspace,
+        customWorkspace: explicitWorkspace
+          ? params.extra.customWorkspace
+          : projectRootPath
+            ? true
+            : params.extra.customWorkspace,
+      },
+    };
+
+    switch (resolvedParams.type) {
       case 'gemini': {
         conversation = await createGeminiAgent(
-          params.model,
-          params.extra.workspace,
-          params.extra.defaultFiles as string[] | undefined,
-          params.extra.webSearchEngine,
-          params.extra.customWorkspace,
-          params.extra.contextFileName,
-          params.extra.presetRules,
-          params.extra.enabledSkills as string[] | undefined,
-          params.extra.presetAssistantId,
-          params.extra.sessionMode,
-          params.extra.isHealthCheck,
-          params.extra.extraSkillPaths as string[] | undefined,
-          params.extra.excludeBuiltinSkills as string[] | undefined
+          resolvedParams.model,
+          resolvedParams.extra.workspace,
+          resolvedParams.extra.defaultFiles as string[] | undefined,
+          resolvedParams.extra.webSearchEngine,
+          resolvedParams.extra.customWorkspace,
+          resolvedParams.extra.contextFileName,
+          resolvedParams.extra.presetRules,
+          resolvedParams.extra.enabledSkills as string[] | undefined,
+          resolvedParams.extra.presetAssistantId,
+          resolvedParams.extra.sessionMode,
+          resolvedParams.extra.isHealthCheck,
+          resolvedParams.extra.extraSkillPaths as string[] | undefined,
+          resolvedParams.extra.excludeBuiltinSkills as string[] | undefined
         );
         break;
       }
       case 'acp': {
-        conversation = await createAcpAgent(params as any);
+        conversation = await createAcpAgent(resolvedParams as any);
         break;
       }
       case 'openclaw-gateway': {
-        conversation = await createOpenClawAgent(params as any);
+        conversation = await createOpenClawAgent(resolvedParams as any);
         break;
       }
       case 'nanobot': {
-        conversation = await createNanobotAgent(params as any);
+        conversation = await createNanobotAgent(resolvedParams as any);
         break;
       }
       case 'remote': {
-        conversation = await createRemoteAgent(params as any);
+        conversation = await createRemoteAgent(resolvedParams as any);
         break;
       }
       case 'aionrs': {
-        conversation = await createAionrsAgent(params as any);
+        conversation = await createAionrsAgent(resolvedParams as any);
         break;
       }
       default: {
-        throw new Error(`Invalid conversation type: ${(params as any).type}`);
+        throw new Error(`Invalid conversation type: ${(resolvedParams as any).type}`);
       }
     }
 
     // Apply optional overrides without mutating the object returned by agent factories
-    const overrides: Partial<TChatConversation> = {};
-    if (params.id) overrides.id = params.id;
-    if (params.name) overrides.name = params.name;
-    if (params.source) overrides.source = params.source;
-    if (params.channelChatId) overrides.channelChatId = params.channelChatId;
+    const overrides: Partial<TChatConversation> = {
+      projectId: resolvedParams.projectId,
+    };
+    if (resolvedParams.id) overrides.id = resolvedParams.id;
+    if (resolvedParams.name) overrides.name = resolvedParams.name;
+    if (resolvedParams.source) overrides.source = resolvedParams.source;
+    if (resolvedParams.channelChatId) overrides.channelChatId = resolvedParams.channelChatId;
     // Merge extra fields from params that the factory didn't consume (e.g. cronJobId).
     // Factory-produced values take precedence; only novel keys from params.extra are added.
-    if (params.extra && conversation.extra) {
+    if (resolvedParams.extra && conversation.extra) {
       const factoryExtra = conversation.extra as Record<string, unknown>;
-      for (const [key, value] of Object.entries(params.extra)) {
+      for (const [key, value] of Object.entries(resolvedParams.extra)) {
         if (value !== undefined && !(key in factoryExtra)) {
           factoryExtra[key] = value;
         }

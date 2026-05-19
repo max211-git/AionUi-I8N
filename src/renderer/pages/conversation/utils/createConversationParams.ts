@@ -179,7 +179,8 @@ async function resolveGeminiModel(): Promise<TProviderWithModel> {
  */
 export async function buildCliAgentParams(
   agent: AvailableAgent,
-  workspace: string
+  workspace: string,
+  projectId?: string
 ): Promise<ICreateConversationParams> {
   const type = getConversationTypeForBackend(agent.backend);
   const preferredMode = await resolvePreferredMode(agent.backend);
@@ -200,6 +201,7 @@ export async function buildCliAgentParams(
     name: agent.name,
     agentName: agent.name,
     workspace,
+    projectId,
     cliPath: agent.cliPath,
     customAgentId: agent.customAgentId,
     model,
@@ -217,7 +219,8 @@ export async function buildCliAgentParams(
 export async function buildPresetAssistantParams(
   agent: AvailableAgent,
   workspace: string,
-  language: string
+  language: string,
+  projectId?: string
 ): Promise<ICreateConversationParams> {
   const { customAgentId, presetAgentType = 'gemini' } = agent;
 
@@ -243,6 +246,7 @@ export async function buildPresetAssistantParams(
     name: agent.name,
     agentName: agent.name,
     workspace,
+    projectId,
     customAgentId,
     isPreset: true,
     presetAgentType,

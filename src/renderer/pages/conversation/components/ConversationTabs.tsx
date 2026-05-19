@@ -208,6 +208,7 @@ const ConversationTabs: React.FC = () => {
       }
 
       const workspace = currentTab.workspace;
+      const projectId = currentTab.projectId;
 
       try {
         // [BUG-3] Build params inside try block: getDefaultGeminiModel() may throw if no model configured
@@ -221,7 +222,7 @@ const ConversationTabs: React.FC = () => {
             Message.error(t('conversation.createFailed'));
             return;
           }
-          params = await buildCliAgentParams(agent, workspace);
+          params = await buildCliAgentParams(agent, workspace, projectId);
         } else if (key.startsWith('preset:')) {
           const assistantId = key.slice(7);
           // [BUG-6] Null check: find() may return undefined
@@ -230,7 +231,7 @@ const ConversationTabs: React.FC = () => {
             Message.error(t('conversation.createFailed'));
             return;
           }
-          params = await buildPresetAssistantParams(agent, workspace, i18n.language);
+          params = await buildPresetAssistantParams(agent, workspace, i18n.language, projectId);
         } else {
           return;
         }

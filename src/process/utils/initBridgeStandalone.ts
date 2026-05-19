@@ -15,7 +15,9 @@ import { logger } from '@office-ai/platform';
 import { agentRegistry } from '@process/agent/AgentRegistry';
 import { SqliteChannelRepository } from '@process/services/database/SqliteChannelRepository';
 import { SqliteConversationRepository } from '@process/services/database/SqliteConversationRepository';
+import { SqliteProjectRepository } from '@process/services/database/SqliteProjectRepository';
 import { ConversationServiceImpl } from '@process/services/ConversationServiceImpl';
+import { ProjectServiceImpl } from '@process/services/ProjectServiceImpl';
 import { workerTaskManager } from '@process/task/workerTaskManagerSingleton';
 import { initAcpConversationBridge } from '@process/bridge/acpConversationBridge';
 import { initAuthBridge } from '@process/bridge/authBridge';
@@ -43,12 +45,15 @@ import { initSystemSettingsBridge } from '@process/bridge/systemSettingsBridge';
 import { initTaskBridge } from '@process/bridge/taskBridge';
 import { initSpeechToTextBridge } from '@process/bridge/speechToTextBridge';
 import { initHubBridge } from '@process/bridge/hubBridge';
+import { initProjectBridge } from '@process/bridge/projectBridge';
 
 logger.config({ print: true });
 
 export async function initBridgeStandalone(): Promise<void> {
   const repo = new SqliteConversationRepository();
-  const conversationService = new ConversationServiceImpl(repo);
+  const projectRepo = new SqliteProjectRepository();
+  const conversationService = new ConversationServiceImpl(repo, projectRepo);
+  const projectService = new ProjectServiceImpl(projectRepo);
   const channelRepo = new SqliteChannelRepository();
 
   // Skipped (Electron-only): dialogBridge, applicationBridge (partial — see applicationBridgeCore),
@@ -80,6 +85,7 @@ export async function initBridgeStandalone(): Promise<void> {
   initStarOfficeBridge();
   initSpeechToTextBridge();
   initHubBridge();
+  initProjectBridge(projectService);
 
   // Initialize ACP detector to scan for installed CLI agents (claude, codex, etc.)
   // Must mirror Electron's initializeAcpDetector() call in src/index.ts

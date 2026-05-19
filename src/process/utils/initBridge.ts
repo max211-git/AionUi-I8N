@@ -5,9 +5,11 @@
  */
 
 import { logger } from '@office-ai/platform';
+import { ProjectServiceImpl } from '@process/services/ProjectServiceImpl';
 import { initAllBridges } from '../bridge';
 import { SqliteChannelRepository } from '@process/services/database/SqliteChannelRepository';
 import { SqliteConversationRepository } from '@process/services/database/SqliteConversationRepository';
+import { SqliteProjectRepository } from '@process/services/database/SqliteProjectRepository';
 import { ConversationServiceImpl } from '@process/services/ConversationServiceImpl';
 import { cronService } from '@process/services/cron/cronServiceSingleton';
 import { workerTaskManager } from '@process/task/workerTaskManagerSingleton';
@@ -17,7 +19,9 @@ import { initTeamGuideService } from '@process/team/mcp/guide/teamGuideSingleton
 logger.config({ print: true });
 
 const repo = new SqliteConversationRepository();
-const conversationServiceImpl = new ConversationServiceImpl(repo);
+const projectRepo = new SqliteProjectRepository();
+const conversationServiceImpl = new ConversationServiceImpl(repo, projectRepo);
+const projectServiceImpl = new ProjectServiceImpl(projectRepo);
 const channelRepo = new SqliteChannelRepository();
 const teamRepo = new SqliteTeamRepository();
 const teamSessionService = new TeamSessionService(teamRepo, workerTaskManager, conversationServiceImpl);
@@ -29,6 +33,7 @@ initAllBridges({
   workerTaskManager,
   channelRepo,
   teamSessionService,
+  projectService: projectServiceImpl,
 });
 
 // Initialize cron service (load jobs from database and start timers)

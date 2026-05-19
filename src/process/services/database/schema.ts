@@ -47,6 +47,7 @@ export function initSchema(db: ISqliteDriver): void {
     type TEXT NOT NULL,
     extra TEXT NOT NULL,
     model TEXT,
+    project_id TEXT,
     status TEXT CHECK(status IN ('pending', 'running', 'finished')),
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
@@ -55,7 +56,20 @@ export function initSchema(db: ISqliteDriver): void {
   db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_type ON conversations(type)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_project_id ON conversations(project_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_user_updated ON conversations(user_id, updated_at DESC)');
+
+  db.exec(`CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    root_path TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at)');
 
   // Messages table (消息表 - 存储TMessage)
   db.exec(`CREATE TABLE IF NOT EXISTS messages (
@@ -151,4 +165,4 @@ export function setDatabaseVersion(db: ISqliteDriver, version: number): void {
  * Current database schema version
  * Update this when adding new migrations in migrations.ts
  */
-export const CURRENT_DB_VERSION = 26;
+export const CURRENT_DB_VERSION = 27;

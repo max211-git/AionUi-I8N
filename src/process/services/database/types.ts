@@ -7,6 +7,7 @@
 // 复用现有的业务类型定义
 import type { ConversationSource, TChatConversation, IConfigStorageRefer } from '@/common/config/storage';
 import type { TMessage } from '@/common/chat/chatLib';
+import type { TProject } from '@/common/adapter/ipcBridge';
 
 /**
  * ======================
@@ -73,9 +74,19 @@ export interface IConversationRow {
   type: string;
   extra: string; // JSON string of extra data
   model?: string; // JSON string of TProviderWithModel (gemini type has this)
+  project_id?: string | null;
   status?: 'pending' | 'running' | 'finished';
   source?: ConversationSource; // 会话来源 / Conversation source
   channel_chat_id?: string; // Channel chat isolation ID (e.g. user:xxx or group:xxx)
+  created_at: number;
+  updated_at: number;
+}
+
+export interface IProjectRow {
+  id: string;
+  user_id: string;
+  name: string;
+  root_path?: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -121,6 +132,7 @@ export function conversationToRow(conversation: TChatConversation, userId: strin
     type: conversation.type,
     extra: JSON.stringify(conversation.extra),
     model: 'model' in conversation ? JSON.stringify(conversation.model) : undefined,
+    project_id: conversation.projectId ?? null,
     status: conversation.status,
     source: conversation.source,
     channel_chat_id: conversation.channelChatId,
@@ -139,6 +151,7 @@ export function rowToConversation(row: IConversationRow): TChatConversation {
     desc: undefined as string | undefined,
     createTime: row.created_at,
     modifyTime: row.updated_at,
+    projectId: row.project_id ?? undefined,
     status: row.status,
     source: row.source,
     channelChatId: row.channel_chat_id,
@@ -211,6 +224,27 @@ export function rowToConversation(row: IConversationRow): TChatConversation {
 
   // Unknown type - should never happen with valid data
   throw new Error(`Unknown conversation type: ${row.type}`);
+}
+
+export function projectRowToProject(row: IProjectRow): TProject {
+  return {
+    id: row.id,
+    name: row.name,
+    rootPath: row.root_path ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function projectToRow(project: TProject, userId: string): IProjectRow {
+  return {
+    id: project.id,
+    user_id: userId,
+    name: project.name,
+    root_path: project.rootPath ?? null,
+    created_at: project.createdAt,
+    updated_at: project.updatedAt,
+  };
 }
 
 /**

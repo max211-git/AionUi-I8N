@@ -29,6 +29,7 @@ export type BuildAgentConversationInput = {
   presetResources?: BuildAgentConversationPresetResources;
   sessionMode?: string;
   currentModelId?: string;
+  projectId?: string;
   extra?: Partial<ICreateConversationParams['extra']>;
 };
 
@@ -66,6 +67,7 @@ export function buildAgentConversationParams(input: BuildAgentConversationInput)
     presetResources,
     sessionMode,
     currentModelId,
+    projectId,
     extra: extraOverrides,
   } = input;
 
@@ -108,6 +110,7 @@ export function buildAgentConversationParams(input: BuildAgentConversationInput)
     type,
     model,
     name,
+    projectId,
     extra,
   };
 }

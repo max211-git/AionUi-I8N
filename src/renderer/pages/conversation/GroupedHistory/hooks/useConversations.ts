@@ -18,6 +18,7 @@ export const useConversations = () => {
   const { id } = useParams();
   const {
     conversations,
+    projects,
     isConversationGenerating,
     hasCompletionUnread,
     clearCompletionUnread,
@@ -121,6 +122,7 @@ export const useConversations = () => {
 
   return {
     conversations,
+    projects,
     isConversationGenerating,
     hasCompletionUnread,
     expandedWorkspaces,

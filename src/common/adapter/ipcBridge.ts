@@ -926,6 +926,7 @@ export interface ICreateConversationParams {
   id?: string;
   name?: string;
   model: TProviderWithModel;
+  projectId?: string;
   extra: {
     workspace?: string;
     customWorkspace?: boolean;
@@ -1321,4 +1322,25 @@ export const team = {
   agentRenamed: bridge.buildEmitter<import('@/common/types/teamTypes').ITeamAgentRenamedEvent>('team.agent.renamed'),
   listChanged: bridge.buildEmitter<import('@/common/types/teamTypes').ITeamListChangedEvent>('team.list-changed'),
   mcpStatus: bridge.buildEmitter<import('@/common/types/teamTypes').ITeamMcpStatusEvent>('team.mcp.status'),
+};
+
+export type TProject = {
+  id: string;
+  name: string;
+  rootPath?: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export const project = {
+  create: bridge.buildProvider<TProject, { name: string; rootPath?: string }>('project.create'),
+  list: bridge.buildProvider<TProject[], void>('project.list'),
+  get: bridge.buildProvider<TProject | null, { id: string }>('project.get'),
+  update: bridge.buildProvider<boolean, { id: string; updates: Partial<Pick<TProject, 'name' | 'rootPath'>> }>(
+    'project.update'
+  ),
+  remove: bridge.buildProvider<boolean, { id: string }>('project.remove'),
+  listChanged: bridge.buildEmitter<{ projectId: string; action: 'created' | 'updated' | 'deleted' }>(
+    'project.list-changed'
+  ),
 };

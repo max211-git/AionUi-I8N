@@ -83,7 +83,9 @@ const GuidPage: React.FC = () => {
   const [providerAgentKey, setProviderAgentKey] = useState<'gemini' | 'aionrs'>('aionrs');
   const modelSelection = useGuidModelSelection(providerAgentKey);
 
-  const resetAssistantRequested = (location.state as { resetAssistant?: boolean } | null)?.resetAssistant === true;
+  const resetAssistantRequested =
+    (location.state as { resetAssistant?: boolean; projectId?: string } | null)?.resetAssistant === true;
+  const projectId = (location.state as { projectId?: string } | null)?.projectId;
   const agentSelection = useGuidAgentSelection({
     modelList: modelSelection.modelList,
     isGoogleAuth: modelSelection.isGoogleAuth,
@@ -156,6 +158,7 @@ const GuidPage: React.FC = () => {
     closeAllTabs,
     openTab,
     t,
+    projectId,
   });
 
   // --- Coordinated handlers (depend on multiple hooks) ---

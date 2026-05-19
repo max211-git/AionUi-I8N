@@ -213,7 +213,7 @@ describe('groupConversationsByWorkspace', () => {
       },
     ];
 
-    const result = groupConversationsByWorkspace(conversations, mockT);
+    const result = groupConversationsByWorkspace(conversations, [], mockT);
 
     expect(result).toHaveLength(1);
     expect(result[0].timeline).toBe('conversation.history.recents');
@@ -250,7 +250,7 @@ describe('groupConversationsByWorkspace', () => {
       },
     ];
 
-    const result = groupConversationsByWorkspace(conversations, mockT);
+    const result = groupConversationsByWorkspace(conversations, [], mockT);
 
     expect(result).toHaveLength(1);
     expect(result[0].items).toHaveLength(2);
@@ -288,7 +288,7 @@ describe('groupConversationsByWorkspace', () => {
       },
     ];
 
-    const result = groupConversationsByWorkspace(conversations, mockT);
+    const result = groupConversationsByWorkspace(conversations, [], mockT);
 
     expect(result[0].items[0].time).toBe(5000); // workspace /path/a
     expect(result[0].items[1].time).toBe(3000); // conv-3
@@ -296,7 +296,7 @@ describe('groupConversationsByWorkspace', () => {
   });
 
   it('returns empty array when no conversations', () => {
-    const result = groupConversationsByWorkspace([], mockT);
+    const result = groupConversationsByWorkspace([], [], mockT);
     expect(result).toEqual([]);
   });
 
@@ -328,7 +328,7 @@ describe('groupConversationsByWorkspace', () => {
       },
     ];
 
-    const result = groupConversationsByWorkspace(conversations, mockT);
+    const result = groupConversationsByWorkspace(conversations, [], mockT);
 
     const workspaceGroup = result[0].items[0].workspaceGroup;
     expect(workspaceGroup?.conversations[0].id).toBe('conv-2'); // 3000
@@ -356,7 +356,7 @@ describe('groupConversationsByWorkspace', () => {
       },
     ];
 
-    const result = groupConversationsByWorkspace(conversations, mockT);
+    const result = groupConversationsByWorkspace(conversations, [], mockT);
 
     // Both should be treated as without workspace
     expect(result[0].items).toHaveLength(2);
@@ -386,7 +386,7 @@ describe('buildGroupedHistory', () => {
       },
     ];
 
-    const result = buildGroupedHistory(conversations, mockT);
+    const result = buildGroupedHistory(conversations, [], mockT);
 
     expect(result.pinnedConversations).toHaveLength(1);
     expect(result.pinnedConversations[0].id).toBe('conv-1');
@@ -414,7 +414,7 @@ describe('buildGroupedHistory', () => {
       },
     ];
 
-    const result = buildGroupedHistory(conversations, mockT);
+    const result = buildGroupedHistory(conversations, [], mockT);
 
     expect(result.pinnedConversations).toHaveLength(0);
     expect(result.timelineSections[0].items).toHaveLength(1);
@@ -449,7 +449,7 @@ describe('buildGroupedHistory', () => {
       },
     ];
 
-    const result = buildGroupedHistory(conversations, mockT);
+    const result = buildGroupedHistory(conversations, [], mockT);
 
     // conv-2 (sortOrder 1000) < conv-1 (sortOrder 2000) < conv-3 (no sortOrder, sorted by pinnedAt)
     expect(result.pinnedConversations[0].id).toBe('conv-2');
@@ -477,7 +477,7 @@ describe('buildGroupedHistory', () => {
       },
     ];
 
-    const result = buildGroupedHistory(conversations, mockT);
+    const result = buildGroupedHistory(conversations, [], mockT);
 
     // Descending by pinnedAt: conv-2 (3000) before conv-1 (2000)
     expect(result.pinnedConversations[0].id).toBe('conv-2');
@@ -520,7 +520,7 @@ describe('buildGroupedHistory', () => {
       },
     ];
 
-    const result = buildGroupedHistory(conversations, mockT);
+    const result = buildGroupedHistory(conversations, [], mockT);
 
     expect(result.pinnedConversations).toHaveLength(1);
     expect(result.pinnedConversations[0].id).toBe('conv-1');
@@ -532,7 +532,7 @@ describe('buildGroupedHistory', () => {
   });
 
   it('returns empty arrays when no conversations', () => {
-    const result = buildGroupedHistory([], mockT);
+    const result = buildGroupedHistory([], [], mockT);
 
     expect(result.pinnedConversations).toEqual([]);
     expect(result.timelineSections).toEqual([]);
@@ -558,7 +558,7 @@ describe('buildGroupedHistory', () => {
       },
     ];
 
-    const result = buildGroupedHistory(conversations, mockT);
+    const result = buildGroupedHistory(conversations, [], mockT);
 
     expect(result.pinnedConversations).toHaveLength(2);
     expect(result.timelineSections).toEqual([]);
@@ -584,7 +584,7 @@ describe('buildGroupedHistory', () => {
       },
     ];
 
-    const result = buildGroupedHistory(conversations, mockT);
+    const result = buildGroupedHistory(conversations, [], mockT);
 
     expect(result.pinnedConversations).toEqual([]);
     expect(result.timelineSections).toEqual([]);

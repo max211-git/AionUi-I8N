@@ -17,6 +17,8 @@ export interface ConversationTab {
   name: string;
   /** 工作空间路径 / Workspace path */
   workspace: string;
+  /** 所属项目 ID / Project ID */
+  projectId?: string;
   /** 会话类型 / Conversation type */
   type: 'gemini' | 'acp' | 'codex' | 'openclaw-gateway' | 'nanobot' | 'remote' | 'aionrs';
   /** 是否有未保存的修改 / Whether there are unsaved changes */
@@ -124,6 +126,7 @@ export const ConversationTabsProvider: React.FC<{ children: React.ReactNode }> =
           id: conversation.id,
           name: conversation.name,
           workspace: conversation.extra?.workspace || '',
+          projectId: conversation.projectId,
           type: conversation.type,
         },
       ];

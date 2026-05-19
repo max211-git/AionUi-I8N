@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { TProject } from '@/common/adapter/ipcBridge';
 import type { TChatConversation } from '@/common/config/storage';
 import { getActivityTime } from '@/renderer/utils/chat/timeline';
 import { getWorkspaceDisplayName } from '@/renderer/utils/workspace/workspace';
@@ -32,12 +33,26 @@ export const getConversationPinnedAt = (conversation: TChatConversation): number
 
 export const groupConversationsByWorkspace = (
   conversations: TChatConversation[],
+  projects: TProject[],
   t: (key: string) => string
 ): TimelineSection[] => {
+  const projectMap = new Map(projects.map((project) => [project.id, project]));
+  const allProjectGroups = new Map<string, TChatConversation[]>();
   const allWorkspaceGroups = new Map<string, TChatConversation[]>();
   const withoutWorkspaceConvs: TChatConversation[] = [];
 
   conversations.forEach((conv) => {
+    if (conv.projectId) {
+      const project = projectMap.get(conv.projectId);
+      if (project) {
+        if (!allProjectGroups.has(project.id)) {
+          allProjectGroups.set(project.id, []);
+        }
+        allProjectGroups.get(project.id)?.push(conv);
+        return;
+      }
+    }
+
     const workspace = conv.extra?.workspace;
     const customWorkspace = conv.extra?.customWorkspace;
 
@@ -45,13 +60,30 @@ export const groupConversationsByWorkspace = (
       if (!allWorkspaceGroups.has(workspace)) {
         allWorkspaceGroups.set(workspace, []);
       }
-      allWorkspaceGroups.get(workspace)!.push(conv);
+      allWorkspaceGroups.get(workspace)?.push(conv);
     } else {
       withoutWorkspaceConvs.push(conv);
     }
   });
 
   const items: TimelineItem[] = [];
+
+  allProjectGroups.forEach((convList, projectId) => {
+    const project = projectMap.get(projectId);
+    if (!project) {
+      return;
+    }
+    const sortedConvs = [...convList].toSorted((a, b) => getActivityTime(b) - getActivityTime(a));
+    const latestConversationTime = getActivityTime(sortedConvs[0]);
+    items.push({
+      type: 'project',
+      time: latestConversationTime,
+      projectGroup: {
+        project,
+        conversations: sortedConvs,
+      },
+    });
+  });
 
   allWorkspaceGroups.forEach((convList, workspace) => {
     const sortedConvs = [...convList].toSorted((a, b) => getActivityTime(b) - getActivityTime(a));
@@ -97,6 +129,7 @@ const isTeamConversation = (conversation: TChatConversation): boolean => {
 
 export const buildGroupedHistory = (
   conversations: TChatConversation[],
+  projects: TProject[],
   t: (key: string) => string
 ): GroupedHistoryResult => {
   // Filter out team-owned conversations; they are only visible via the Teams panel
@@ -119,6 +152,6 @@ export const buildGroupedHistory = (
 
   return {
     pinnedConversations,
-    timelineSections: groupConversationsByWorkspace(normalConversations, t),
+    timelineSections: groupConversationsByWorkspace(normalConversations, projects, t),
   };
 };

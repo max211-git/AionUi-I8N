@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { TProject } from '@/common/adapter/ipcBridge';
 import type { TChatConversation } from '@/common/config/storage';
 
 export type WorkspaceGroup = {
@@ -12,10 +13,16 @@ export type WorkspaceGroup = {
   conversations: TChatConversation[];
 };
 
+export type ProjectGroup = {
+  project: TProject;
+  conversations: TChatConversation[];
+};
+
 export type TimelineItem = {
-  type: 'workspace' | 'conversation';
+  type: 'workspace' | 'project' | 'conversation';
   time: number;
   workspaceGroup?: WorkspaceGroup;
+  projectGroup?: ProjectGroup;
   conversation?: TChatConversation;
 };
 
@@ -58,6 +65,8 @@ export type ConversationRowProps = {
   onDelete: (conversationId: string) => void;
   onExport?: (conversation: TChatConversation) => void;
   onTogglePin: (conversation: TChatConversation) => void;
+  onAssignProject?: (conversation: TChatConversation, projectId?: string) => void;
+  projects?: TProject[];
   getJobStatus: (conversationId: string) => 'none' | 'active' | 'paused' | 'error' | 'unread';
 };
 

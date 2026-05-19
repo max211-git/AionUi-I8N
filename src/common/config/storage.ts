@@ -221,6 +221,7 @@ interface IChatConversation<T, Extra> {
   name: string;
   desc?: string;
   id: string;
+  projectId?: string;
   type: T;
   extra: Extra;
   model: TProviderWithModel;

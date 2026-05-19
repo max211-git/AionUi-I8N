@@ -15,6 +15,7 @@ export interface CreateConversationParams {
   id?: string;
   name?: string;
   model: TProviderWithModel;
+  projectId?: string;
   source?: ConversationSource;
   channelChatId?: string;
   extra: {

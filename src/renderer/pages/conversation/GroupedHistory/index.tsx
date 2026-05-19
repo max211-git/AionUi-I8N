@@ -4,18 +4,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { ipcBridge } from '@/common';
+import type { TProject } from '@/common/adapter/ipcBridge';
 import type { TChatConversation } from '@/common/config/storage';
 import DirectorySelectionModal from '@/renderer/components/settings/DirectorySelectionModal';
 import { CronJobIndicator, useCronJobsMap } from '@/renderer/pages/cron';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Button, Empty, Input, Modal } from '@arco-design/web-react';
-import { FolderOpen } from '@icon-park/react';
+import { Button, Empty, Input, Message, Modal } from '@arco-design/web-react';
+import { FolderOpen, FolderPlus } from '@icon-park/react';
 import classNames from 'classnames';
 import { Down, Right } from '@icon-park/react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 
 import WorkspaceCollapse from '../components/WorkspaceCollapse';
 import ConversationRow from './ConversationRow';
@@ -36,8 +38,15 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   onBatchModeChange,
 }) => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { getJobStatus, markAsRead, setActiveConversation } = useCronJobsMap();
+  const [projectModalVisible, setProjectModalVisible] = useState(false);
+  const [projectEditModalVisible, setProjectEditModalVisible] = useState(false);
+  const [editingProject, setEditingProject] = useState<TProject | null>(null);
+  const [projectName, setProjectName] = useState('');
+  const [projectRootPath, setProjectRootPath] = useState('');
+  const [projectSaving, setProjectSaving] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set());
   const toggleSection = useCallback((key: string) => {
     setCollapsedSections((prev) => {
@@ -58,6 +67,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
 
   const {
     conversations,
+    projects,
     isConversationGenerating,
     hasCompletionUnread,
     expandedWorkspaces,
@@ -88,6 +98,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     handleRenameConfirm,
     handleRenameCancel,
     handleTogglePin,
+    handleAssignProject,
     handleMenuVisibleChange,
     handleOpenMenu,
   } = useConversationActions({
@@ -146,6 +157,8 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       onDelete: handleDeleteClick,
       onExport: handleExportConversation,
       onTogglePin: handleTogglePin,
+      onAssignProject: handleAssignProject,
+      projects,
       getJobStatus,
     }),
     [
@@ -165,13 +178,176 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       handleDeleteClick,
       handleExportConversation,
       handleTogglePin,
+      handleAssignProject,
+      projects,
       getJobStatus,
     ]
+  );
+
+  const handleCreateProject = useCallback(async () => {
+    const trimmedName = projectName.trim();
+    const trimmedRootPath = projectRootPath.trim();
+    if (!trimmedName) {
+      return;
+    }
+
+    try {
+      setProjectSaving(true);
+      await ipcBridge.project.create.invoke({
+        name: trimmedName,
+        rootPath: trimmedRootPath || undefined,
+      });
+      Message.success(t('conversation.history.projectCreated'));
+      setProjectModalVisible(false);
+      setProjectName('');
+      setProjectRootPath('');
+    } catch (error) {
+      console.error('[WorkspaceGroupedHistory] Failed to create project:', error);
+      Message.error(t('conversation.history.projectCreateFailed'));
+    } finally {
+      setProjectSaving(false);
+    }
+  }, [projectName, projectRootPath, t]);
+
+  const handleStartEditProject = useCallback((project: TProject) => {
+    setEditingProject(project);
+    setProjectName(project.name);
+    setProjectRootPath(project.rootPath ?? '');
+    setProjectEditModalVisible(true);
+  }, []);
+
+  const handleSaveProject = useCallback(async () => {
+    if (!editingProject) {
+      return;
+    }
+
+    const trimmedName = projectName.trim();
+    const trimmedRootPath = projectRootPath.trim();
+    if (!trimmedName) {
+      return;
+    }
+
+    try {
+      setProjectSaving(true);
+      const success = await ipcBridge.project.update.invoke({
+        id: editingProject.id,
+        updates: {
+          name: trimmedName,
+          rootPath: trimmedRootPath || undefined,
+        },
+      });
+      if (success) {
+        Message.success(t('conversation.history.projectUpdated'));
+        setProjectEditModalVisible(false);
+        setEditingProject(null);
+        setProjectName('');
+        setProjectRootPath('');
+      } else {
+        Message.error(t('conversation.history.projectUpdateFailed'));
+      }
+    } catch (error) {
+      console.error('[WorkspaceGroupedHistory] Failed to update project:', error);
+      Message.error(t('conversation.history.projectUpdateFailed'));
+    } finally {
+      setProjectSaving(false);
+    }
+  }, [editingProject, projectName, projectRootPath, t]);
+
+  const handleDeleteProject = useCallback(
+    (project: TProject) => {
+      Modal.confirm({
+        title: t('conversation.history.deleteProjectTitle'),
+        content: t('conversation.history.deleteProjectConfirm', { name: project.name }),
+        okText: t('conversation.history.confirmDelete'),
+        cancelText: t('conversation.history.cancelDelete'),
+        okButtonProps: { status: 'warning' },
+        onOk: async () => {
+          try {
+            const success = await ipcBridge.project.remove.invoke({ id: project.id });
+            if (success) {
+              Message.success(t('conversation.history.projectDeleted'));
+            } else {
+              Message.error(t('conversation.history.projectDeleteFailed'));
+            }
+          } catch (error) {
+            console.error('[WorkspaceGroupedHistory] Failed to delete project:', error);
+            Message.error(t('conversation.history.projectDeleteFailed'));
+          }
+        },
+      });
+    },
+    [t]
+  );
+
+  const handleCreateConversationInProject = useCallback(
+    async (project: TProject) => {
+      navigate('/', {
+        state: {
+          projectId: project.id,
+        },
+      });
+    },
+    [navigate]
   );
 
   const renderConversation = (conversation: TChatConversation) => {
     const rowProps = getConversationRowProps(conversation);
     return <ConversationRow key={conversation.id} {...rowProps} />;
+  };
+
+  const renderProjectGroup = (project: TProject, projectConversations: TChatConversation[]) => {
+    const sectionKey = `project:${project.id}`;
+    const isCollapsed = collapsedSections.has(sectionKey);
+
+    return (
+      <div key={project.id} className='mb-2'>
+        <Button
+          type='text'
+          className='group !mb-1 !w-full !justify-between !px-2 !text-left'
+          onClick={() => toggleSection(sectionKey)}
+        >
+          <span className='flex items-center gap-2 truncate'>
+            <FolderOpen className='text-[16px]' />
+            <span className='truncate font-medium'>{project.name}</span>
+          </span>
+          <span className='flex items-center gap-8px text-text-3 text-xs'>
+            <Button
+              type='text'
+              size='mini'
+              onClick={(event) => {
+                event.stopPropagation();
+                void handleCreateConversationInProject(project);
+              }}
+            >
+              {t('conversation.history.newChatInProject')}
+            </Button>
+            <Button
+              type='text'
+              size='mini'
+              onClick={(event) => {
+                event.stopPropagation();
+                handleStartEditProject(project);
+              }}
+            >
+              {t('conversation.history.editProject')}
+            </Button>
+            <Button
+              type='text'
+              size='mini'
+              status='danger'
+              onClick={(event) => {
+                event.stopPropagation();
+                handleDeleteProject(project);
+              }}
+            >
+              {t('conversation.history.deleteProject')}
+            </Button>
+            <span>{projectConversations.length}</span>
+          </span>
+        </Button>
+        {!isCollapsed && <div>{projectConversations.map((conversation) => renderConversation(conversation))}</div>}
+      </div>
+    );
   };
 
   // Collect all sortable IDs for the pinned section
@@ -394,6 +570,17 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           </DragOverlay>
         </DndContext>
 
+        <div className='mb-8px px-12px'>
+          <Button
+            type='text'
+            long
+            icon={<FolderPlus className='text-[16px]' />}
+            onClick={() => setProjectModalVisible(true)}
+          >
+            {t('conversation.history.createProject')}
+          </Button>
+        </div>
+
         {timelineSections.map((section) => (
           <div key={section.timeline} className='mb-8px min-w-0'>
             {!collapsed && (
@@ -438,6 +625,10 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                   );
                 }
 
+                if (item.type === 'project' && item.projectGroup) {
+                  return renderProjectGroup(item.projectGroup.project, item.projectGroup.conversations);
+                }
+
                 if (item.type === 'conversation' && item.conversation) {
                   return renderConversation(item.conversation);
                 }
@@ -447,6 +638,55 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           </div>
         ))}
       </div>
+      <Modal
+        title={t('conversation.history.editProject')}
+        visible={projectEditModalVisible}
+        onOk={() => void handleSaveProject()}
+        onCancel={() => {
+          setProjectEditModalVisible(false);
+          setEditingProject(null);
+          setProjectName('');
+          setProjectRootPath('');
+        }}
+        confirmLoading={projectSaving}
+      >
+        <div className='flex flex-col gap-12px'>
+          <Input
+            value={projectName}
+            onChange={setProjectName}
+            placeholder={t('conversation.history.projectNamePlaceholder')}
+          />
+          <Input
+            value={projectRootPath}
+            onChange={setProjectRootPath}
+            placeholder={t('conversation.history.projectRootPlaceholder')}
+          />
+        </div>
+      </Modal>
+      <Modal
+        title={t('conversation.history.createProject')}
+        visible={projectModalVisible}
+        onOk={() => void handleCreateProject()}
+        onCancel={() => {
+          setProjectModalVisible(false);
+          setProjectName('');
+          setProjectRootPath('');
+        }}
+        confirmLoading={projectSaving}
+      >
+        <div className='flex flex-col gap-12px'>
+          <Input
+            value={projectName}
+            onChange={setProjectName}
+            placeholder={t('conversation.history.projectNamePlaceholder')}
+          />
+          <Input
+            value={projectRootPath}
+            onChange={setProjectRootPath}
+            placeholder={t('conversation.history.projectRootPlaceholder')}
+          />
+        </div>
+      </Modal>
     </>
   );
 };

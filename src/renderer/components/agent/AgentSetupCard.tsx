@@ -118,6 +118,7 @@ const AgentSetupCard: React.FC<AgentSetupCardProps> = ({
             baseUrl: '',
             apiKey: '',
           },
+          projectId: conversation.projectId,
           extra: {
             workspace: conversation.extra?.workspace || '',
             customWorkspace: conversation.extra?.customWorkspace || false,

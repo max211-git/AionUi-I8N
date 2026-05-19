@@ -11,7 +11,7 @@ import { usePresetAssistantInfo } from '@/renderer/hooks/agent/usePresetAssistan
 import { CronJobIndicator } from '@/renderer/pages/cron';
 import { cleanupSiderTooltips, getSiderTooltipProps } from '@/renderer/utils/ui/siderTooltip';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
-import { Checkbox, Dropdown, Menu, Spin, Tooltip } from '@arco-design/web-react';
+import { Checkbox, Dropdown, Menu, Select, Spin, Tooltip } from '@arco-design/web-react';
 import { DeleteOne, EditOne, Export, MessageOne, Pushpin } from '@icon-park/react';
 import classNames from 'classnames';
 import React from 'react';
@@ -44,6 +44,8 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
     onDelete,
     onExport,
     onTogglePin,
+    onAssignProject,
+    projects,
     getJobStatus,
   } = props;
   const { t } = useTranslation();
@@ -211,6 +213,11 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
                       onExport?.(conversation);
                       return;
                     }
+                    if (key.startsWith('project:')) {
+                      const nextProjectId = key === 'project:none' ? undefined : key.slice('project:'.length);
+                      onAssignProject?.(conversation, nextProjectId);
+                      return;
+                    }
                     if (key === 'delete') {
                       onDelete(conversation.id);
                     }
@@ -235,6 +242,25 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
                         <span>{t('conversation.history.export')}</span>
                       </div>
                     </Menu.Item>
+                  )}
+                  {projects && onAssignProject && (
+                    <Menu.SubMenu
+                      key='project-submenu'
+                      title={
+                        <div className='flex items-center gap-8px'>
+                          <span>{t('conversation.history.moveToProject')}</span>
+                        </div>
+                      }
+                    >
+                      <Menu.Item key='project:none'>
+                        <span>{t('conversation.history.removeFromProject')}</span>
+                      </Menu.Item>
+                      {projects.map((project) => (
+                        <Menu.Item key={`project:${project.id}`}>
+                          <span>{project.name}</span>
+                        </Menu.Item>
+                      ))}
+                    </Menu.SubMenu>
                   )}
                   <Menu.Item key='delete'>
                     <div className='flex items-center gap-8px text-[rgb(var(--warning-6))]'>
