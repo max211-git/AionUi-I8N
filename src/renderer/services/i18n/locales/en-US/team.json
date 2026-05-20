@@ -15,7 +15,16 @@
     "renameOk": "Save",
     "renameCancel": "Cancel",
     "renameSuccess": "Team renamed",
-    "deleteSuccess": "Team deleted"
+    "deleteSuccess": "Team deleted",
+    "moveToProject": "Move to project",
+    "assignProjectTitle": "Move team to project",
+    "assignProjectDescription": "Move \"{{name}}\" into a project.",
+    "assignProjectPlaceholder": "Select a project",
+    "assignProjectOk": "Move",
+    "assignProjectCancel": "Cancel",
+    "assignProjectSuccess": "Team moved to project",
+    "assignProjectFailed": "Failed to move team to project",
+    "assignProjectLoadFailed": "Failed to load projects"
   },
   "newAgent": "New Agent",
   "noMessages": "No messages yet.",

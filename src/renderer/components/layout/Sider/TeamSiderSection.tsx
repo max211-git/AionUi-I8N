@@ -5,7 +5,7 @@
  */
 
 import { DeleteOne, EditOne, Peoples, Plus, Pushpin } from '@icon-park/react';
-import { Input, Message, Modal, Tooltip } from '@arco-design/web-react';
+import { Input, Message, Modal, Select, Tooltip } from '@arco-design/web-react';
 import classNames from 'classnames';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +18,8 @@ import { useTeamList } from '@renderer/pages/team/hooks/useTeamList';
 import { useSiderTeamBadges } from '@renderer/pages/team/hooks/useSiderTeamBadges';
 import TeamCreateModal from '@renderer/pages/team/components/TeamCreateModal';
 import { ipcBridge } from '@/common';
+import type { TProject } from '@/common/adapter/ipcBridge';
+import type { TTeam } from '@/common/types/teamTypes';
 import SiderItem from './SiderItem';
 import type { SiderMenuItem } from './SiderItem';
 
@@ -67,6 +69,48 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameName, setRenameName] = useState('');
   const [renameLoading, setRenameLoading] = useState(false);
+  const [assignProjectVisible, setAssignProjectVisible] = useState(false);
+  const [assignProjectLoading, setAssignProjectLoading] = useState(false);
+  const [assignTeam, setAssignTeam] = useState<TTeam | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(undefined);
+  const [projects, setProjects] = useState<TProject[]>([]);
+
+  const handleOpenAssignProject = useCallback(
+    async (team: TTeam) => {
+      setAssignTeam(team);
+      setSelectedProjectId(undefined);
+      setAssignProjectVisible(true);
+      try {
+        const nextProjects = await ipcBridge.project.list.invoke();
+        setProjects(nextProjects);
+      } catch (error) {
+        console.error('[TeamSiderSection] Failed to load projects:', error);
+        Message.error(t('team.sider.assignProjectLoadFailed'));
+      }
+    },
+    [t]
+  );
+
+  const handleAssignProjectConfirm = useCallback(async () => {
+    if (!assignTeam || !selectedProjectId) {
+      return;
+    }
+    setAssignProjectLoading(true);
+    try {
+      await ipcBridge.team.updateProject.invoke({ teamId: assignTeam.id, projectId: selectedProjectId });
+      await refreshTeams();
+      await globalMutate(`team/${assignTeam.id}`);
+      Message.success(t('team.sider.assignProjectSuccess'));
+      setAssignProjectVisible(false);
+      setAssignTeam(null);
+      setSelectedProjectId(undefined);
+    } catch (error) {
+      console.error('[TeamSiderSection] Failed to assign project:', error);
+      Message.error(t('team.sider.assignProjectFailed'));
+    } finally {
+      setAssignProjectLoading(false);
+    }
+  }, [assignTeam, globalMutate, refreshTeams, selectedProjectId, t]);
 
   const handleRenameConfirm = useCallback(async () => {
     if (!renameId || !renameName.trim()) return;
@@ -168,6 +212,11 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
                   label: t('team.sider.rename'),
                 },
                 {
+                  key: 'move-to-project',
+                  icon: <Peoples theme='outline' size='14' />,
+                  label: t('team.sider.moveToProject'),
+                },
+                {
                   key: 'delete',
                   icon: <DeleteOne theme='outline' size='14' />,
                   label: t('team.sider.delete'),
@@ -190,6 +239,8 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
                         setRenameId(team.id);
                         setRenameName(team.name);
                         setRenameVisible(true);
+                      } else if (key === 'move-to-project') {
+                        void handleOpenAssignProject(team);
                       } else if (key === 'delete') {
                         Modal.confirm({
                           title: t('team.sider.deleteConfirm'),
@@ -258,6 +309,41 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
           placeholder={t('team.sider.renamePlaceholder')}
           allowClear
         />
+      </Modal>
+
+      <Modal
+        title={t('team.sider.assignProjectTitle')}
+        visible={assignProjectVisible}
+        onOk={() => void handleAssignProjectConfirm()}
+        onCancel={() => {
+          setAssignProjectVisible(false);
+          setAssignProjectLoading(false);
+          setAssignTeam(null);
+          setSelectedProjectId(undefined);
+        }}
+        okText={t('team.sider.assignProjectOk')}
+        cancelText={t('team.sider.assignProjectCancel')}
+        confirmLoading={assignProjectLoading}
+        okButtonProps={{ disabled: !selectedProjectId }}
+        style={{ borderRadius: '12px' }}
+        alignCenter
+        getPopupContainer={() => document.body}
+      >
+        <div className='mb-3 text-[13px] text-t-secondary'>
+          {assignTeam ? t('team.sider.assignProjectDescription', { name: assignTeam.name }) : ''}
+        </div>
+        <Select
+          placeholder={t('team.sider.assignProjectPlaceholder')}
+          value={selectedProjectId}
+          onChange={(value) => setSelectedProjectId(value || undefined)}
+          allowClear
+        >
+          {projects.map((project) => (
+            <Select.Option key={project.id} value={project.id}>
+              {project.name}
+            </Select.Option>
+          ))}
+        </Select>
       </Modal>
     </>
   );
