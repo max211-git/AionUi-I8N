@@ -44,10 +44,11 @@ export const useGuidInput = ({ locationState }: UseGuidInputOptions): GuidInputR
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Read workspace from location.state (passed from tabs add button)
+  // Read workspace from location.state (passed from tabs add button or project workspace chat)
   useEffect(() => {
-    if (locationState?.workspace) {
-      setDir(locationState.workspace);
+    const workspace = locationState?.workspace?.trim();
+    if (workspace) {
+      setDir(workspace);
     }
   }, [locationState]);
 

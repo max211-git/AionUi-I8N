@@ -12,9 +12,8 @@ import { CronJobIndicator, useCronJobsMap } from '@/renderer/pages/cron';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Dropdown, Empty, Input, Menu, Message, Modal } from '@arco-design/web-react';
-import { FolderOpen, FolderPlus, MoreOne } from '@icon-park/react';
+import { Application, Code, Comment, Down, FolderOpen, FolderPlus, MoreOne, Peoples, Right } from '@icon-park/react';
 import classNames from 'classnames';
-import { Down, Right } from '@icon-park/react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -28,7 +27,7 @@ import { useConversationActions } from './hooks/useConversationActions';
 import { useConversations } from './hooks/useConversations';
 import { useDragAndDrop } from './hooks/useDragAndDrop';
 import { useExport } from './hooks/useExport';
-import type { ConversationRowProps, WorkspaceGroupedHistoryProps } from './types';
+import type { ConversationRowProps, ProjectGroup, WorkspaceGroupedHistoryProps } from './types';
 
 const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   onSessionClick,
@@ -46,6 +45,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   const [editingProject, setEditingProject] = useState<TProject | null>(null);
   const [projectName, setProjectName] = useState('');
   const [projectRootPath, setProjectRootPath] = useState('');
+  const [workspacePickerProject, setWorkspacePickerProject] = useState<TProject | null>(null);
   const [projectSaving, setProjectSaving] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set());
   const toggleSection = useCallback((key: string) => {
@@ -281,15 +281,29 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   );
 
   const handleCreateConversationInProject = useCallback(
-    async (project: TProject) => {
+    (project: TProject, workspace?: string) => {
       window.sessionStorage.setItem('aionui:create-project-id', project.id);
       navigate('/', {
         state: {
           projectId: project.id,
+          workspace,
         },
       });
     },
     [navigate]
+  );
+
+  const handleSelectProjectWorkspace = useCallback(
+    (paths: string[] | undefined) => {
+      const workspace = paths?.[0]?.trim();
+      const project = workspacePickerProject;
+      setWorkspacePickerProject(null);
+      if (!project || !workspace) {
+        return;
+      }
+      handleCreateConversationInProject(project, workspace);
+    },
+    [handleCreateConversationInProject, workspacePickerProject]
   );
 
   const renderConversation = (conversation: TChatConversation) => {
@@ -297,63 +311,168 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     return <ConversationRow key={conversation.id} {...rowProps} />;
   };
 
-  const renderProjectGroup = (project: TProject, projectConversations: TChatConversation[]) => {
+  const renderProjectGroup = (projectGroup: ProjectGroup) => {
+    const { project, conversations: projectConversations, chatConversations, workspaceGroups } = projectGroup;
     const sectionKey = `project:${project.id}`;
     const isCollapsed = collapsedSections.has(sectionKey);
+    const chatSectionKey = `${sectionKey}:chats`;
+    const workspaceSectionKey = `${sectionKey}:workspaces`;
+    const teamsSectionKey = `${sectionKey}:teams`;
+    const assetsSectionKey = `${sectionKey}:assets`;
+
+    const renderProjectSubheader = (key: string, icon: React.ReactNode, label: string, count?: number) => (
+      <Button
+        type='text'
+        className='!h-28px !w-full !justify-start !px-2 !text-left hover:!bg-fill-3'
+        onClick={() => toggleSection(key)}
+      >
+        <span className='flex min-w-0 w-full items-center gap-6px pl-18px text-t-secondary'>
+          <span className='shrink-0 text-[14px]'>{icon}</span>
+          <span className='min-w-0 flex-1 truncate text-12px font-medium'>{label}</span>
+          {count !== undefined && (
+            <span className='shrink-0 rounded-10px bg-fill-3 px-6px py-1px text-10px leading-14px text-t-secondary'>
+              {count}
+            </span>
+          )}
+          {collapsedSections.has(key) ? <Right theme='outline' size={10} /> : <Down theme='outline' size={10} />}
+        </span>
+      </Button>
+    );
+
+    const renderPlaceholder = (label: string) => (
+      <div className='ml-34px mr-8px rounded-8px border border-dashed border-[rgba(var(--primary-6),0.16)] px-8px py-6px text-11px leading-16px text-t-tertiary'>
+        {label}
+      </div>
+    );
 
     return (
-      <div key={project.id} className='mb-2'>
-        <Button
-          type='text'
-          className='group !mb-1 !w-full !px-2 !text-left !text-t-primary hover:!bg-fill-3'
-          onClick={() => toggleSection(sectionKey)}
-        >
-          <span className='flex min-w-0 w-full items-center gap-8px'>
-            <FolderOpen className='text-[16px] shrink-0 text-t-secondary' />
-            <span className='min-w-0 flex-1 truncate font-medium text-t-primary'>{project.name}</span>
-            <span className='shrink-0 rounded-10px bg-fill-3 px-6px py-1px text-11px leading-16px text-t-secondary'>
-              {projectConversations.length}
-            </span>
-            <Dropdown
-              droplist={
-                <Menu
-                  onClickMenuItem={(key) => {
-                    if (key === 'new-chat') {
-                      void handleCreateConversationInProject(project);
-                      return;
-                    }
-                    if (key === 'edit') {
-                      handleStartEditProject(project);
-                      return;
-                    }
-                    if (key === 'delete') {
-                      handleDeleteProject(project);
-                    }
+      <div key={project.id} className='mb-2 px-8px'>
+        <div className='rounded-12px border border-solid border-[rgba(var(--primary-6),0.18)] bg-[rgba(var(--primary-6),0.06)] p-4px'>
+          <Button
+            type='text'
+            className='group !mb-1 !w-full !px-2 !text-left !text-t-primary hover:!bg-[rgba(var(--primary-6),0.10)]'
+            onClick={() => toggleSection(sectionKey)}
+          >
+            <span className='flex min-w-0 w-full items-center gap-8px'>
+              <span className='flex-center h-24px w-24px shrink-0 rounded-8px bg-[rgba(var(--primary-6),0.14)] text-[rgb(var(--primary-6))]'>
+                <Application theme='outline' size='16' />
+              </span>
+              <span className='min-w-0 flex-1 truncate font-medium text-t-primary'>{project.name}</span>
+              <span className='shrink-0 rounded-10px bg-[rgba(var(--primary-6),0.14)] px-6px py-1px text-11px leading-16px text-[rgb(var(--primary-6))]'>
+                {projectConversations.length}
+              </span>
+              <Dropdown
+                droplist={
+                  <Menu
+                    onClickMenuItem={(key) => {
+                      if (key === 'new-chat') {
+                        handleCreateConversationInProject(project);
+                        return;
+                      }
+                      if (key === 'new-workspace-chat') {
+                        setWorkspacePickerProject(project);
+                        return;
+                      }
+                      if (key === 'edit') {
+                        handleStartEditProject(project);
+                        return;
+                      }
+                      if (key === 'delete') {
+                        handleDeleteProject(project);
+                      }
+                    }}
+                  >
+                    <Menu.Item key='new-chat'>{t('conversation.history.newChatInProject')}</Menu.Item>
+                    <Menu.Item key='new-workspace-chat'>
+                      {t('conversation.history.newWorkspaceChatInProject')}
+                    </Menu.Item>
+                    <Menu.Item key='edit'>{t('conversation.history.editProject')}</Menu.Item>
+                    <Menu.Item key='delete'>
+                      <span className='text-[rgb(var(--warning-6))]'>{t('conversation.history.deleteProject')}</span>
+                    </Menu.Item>
+                  </Menu>
+                }
+                trigger='click'
+                position='br'
+                getPopupContainer={() => document.body}
+              >
+                <span
+                  className='flex-center h-24px w-24px shrink-0 rd-6px text-t-secondary hover:bg-fill-2 hover:text-t-primary'
+                  onClick={(event) => {
+                    event.stopPropagation();
                   }}
                 >
-                  <Menu.Item key='new-chat'>{t('conversation.history.newChatInProject')}</Menu.Item>
-                  <Menu.Item key='edit'>{t('conversation.history.editProject')}</Menu.Item>
-                  <Menu.Item key='delete'>
-                    <span className='text-[rgb(var(--warning-6))]'>{t('conversation.history.deleteProject')}</span>
-                  </Menu.Item>
-                </Menu>
-              }
-              trigger='click'
-              position='br'
-              getPopupContainer={() => document.body}
-            >
-              <span
-                className='flex-center h-24px w-24px shrink-0 rd-6px text-t-secondary hover:bg-fill-2 hover:text-t-primary'
-                onClick={(event) => {
-                  event.stopPropagation();
-                }}
-              >
-                <MoreOne theme='outline' size='16' />
-              </span>
-            </Dropdown>
-          </span>
-        </Button>
-        {!isCollapsed && <div>{projectConversations.map((conversation) => renderConversation(conversation))}</div>}
+                  <MoreOne theme='outline' size='16' />
+                </span>
+              </Dropdown>
+            </span>
+          </Button>
+
+          {!isCollapsed && (
+            <div className='flex flex-col gap-2px'>
+              {renderProjectSubheader(
+                chatSectionKey,
+                <Comment theme='outline' size='14' />,
+                t('conversation.history.projectChatsSection'),
+                chatConversations.length
+              )}
+              {!collapsedSections.has(chatSectionKey) && (
+                <div className='flex flex-col gap-1px'>
+                  {chatConversations.map((conversation) => renderConversation(conversation))}
+                </div>
+              )}
+
+              {renderProjectSubheader(
+                workspaceSectionKey,
+                <Code theme='outline' size='14' />,
+                t('conversation.history.projectWorkspaceChatsSection'),
+                workspaceGroups.reduce((count, group) => count + group.conversations.length, 0)
+              )}
+              {!collapsedSections.has(workspaceSectionKey) && (
+                <div className='flex flex-col gap-1px'>
+                  {workspaceGroups.length > 0
+                    ? workspaceGroups.map((group) => (
+                        <WorkspaceCollapse
+                          key={group.workspace}
+                          expanded={expandedWorkspaces.includes(group.workspace)}
+                          onToggle={() => handleToggleWorkspace(group.workspace)}
+                          siderCollapsed={collapsed}
+                          header={
+                            <div className='flex items-center gap-8px text-13px min-w-0'>
+                              <span className='font-medium truncate flex-1 text-t-primary min-w-0'>
+                                {group.displayName}
+                              </span>
+                            </div>
+                          }
+                        >
+                          <div className={classNames('flex flex-col gap-2px min-w-0', { 'mt-2px': !collapsed })}>
+                            {group.conversations.map((conversation) => renderConversation(conversation))}
+                          </div>
+                        </WorkspaceCollapse>
+                      ))
+                    : renderPlaceholder(t('conversation.history.projectNoWorkspaceChats'))}
+                </div>
+              )}
+
+              {renderProjectSubheader(
+                teamsSectionKey,
+                <Peoples theme='outline' size='14' />,
+                t('conversation.history.projectTeamsSection'),
+                0
+              )}
+              {!collapsedSections.has(teamsSectionKey) &&
+                renderPlaceholder(t('conversation.history.projectTeamsPlaceholder'))}
+
+              {renderProjectSubheader(
+                assetsSectionKey,
+                <FolderOpen theme='outline' size='14' />,
+                t('conversation.history.projectAssetsSection')
+              )}
+              {!collapsedSections.has(assetsSectionKey) &&
+                renderPlaceholder(t('conversation.history.projectAssetsPlaceholder'))}
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -361,7 +480,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   // Collect all sortable IDs for the pinned section
   const pinnedIds = useMemo(() => pinnedConversations.map((c) => c.id), [pinnedConversations]);
 
-  if (timelineSections.length === 0 && pinnedConversations.length === 0) {
+  if (timelineSections.length === 0 && pinnedConversations.length === 0 && unassignedProjects.length === 0) {
     return (
       <div className='py-48px flex-center'>
         <Empty description={t('conversation.history.noHistory')} />
@@ -493,6 +612,12 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
         onCancel={() => setShowExportDirectorySelector(false)}
       />
 
+      <DirectorySelectionModal
+        visible={workspacePickerProject !== null}
+        onConfirm={handleSelectProjectWorkspace}
+        onCancel={() => setWorkspacePickerProject(null)}
+      />
+
       {batchMode && !collapsed && (
         <div className='px-12px pb-8px'>
           <div className='rd-8px bg-fill-1 p-10px flex flex-col gap-8px border border-solid border-[rgba(var(--primary-6),0.08)]'>
@@ -592,7 +717,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           </Button>
         </div>
 
-        {unassignedProjects.length > 0 && (
+        {unassignedProjects.length > 0 && !collapsed && (
           <div className='mb-8px min-w-0'>
             {!collapsed && (
               <div
@@ -611,7 +736,10 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 </div>
               </div>
             )}
-            {!collapsedSections.has('projects') && unassignedProjects.map((project) => renderProjectGroup(project, []))}
+            {!collapsedSections.has('projects') &&
+              unassignedProjects.map((project) =>
+                renderProjectGroup({ project, conversations: [], chatConversations: [], workspaceGroups: [] })
+              )}
           </div>
         )}
 
@@ -660,7 +788,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 }
 
                 if (item.type === 'project' && item.projectGroup) {
-                  return renderProjectGroup(item.projectGroup.project, item.projectGroup.conversations);
+                  return renderProjectGroup(item.projectGroup);
                 }
 
                 if (item.type === 'conversation' && item.conversation) {
@@ -693,7 +821,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           <Input
             value={projectRootPath}
             onChange={setProjectRootPath}
-            placeholder={t('conversation.history.projectRootPlaceholder')}
+            placeholder={t('conversation.history.projectFolderPlaceholder')}
           />
         </div>
       </Modal>
@@ -717,7 +845,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           <Input
             value={projectRootPath}
             onChange={setProjectRootPath}
-            placeholder={t('conversation.history.projectRootPlaceholder')}
+            placeholder={t('conversation.history.projectFolderPlaceholder')}
           />
         </div>
       </Modal>

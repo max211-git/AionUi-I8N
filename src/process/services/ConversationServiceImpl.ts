@@ -128,27 +128,19 @@ export class ConversationServiceImpl implements IConversationService {
   async createConversation(params: CreateConversationParams): Promise<TChatConversation> {
     let conversation: TChatConversation;
     const explicitWorkspace = params.extra.workspace?.trim() || undefined;
-    let projectRootPath: string | undefined;
 
     if (params.projectId && this.projectRepo) {
       const project = await this.projectRepo.get('system_default_user', params.projectId);
       if (!project) {
         throw new Error(`Project not found: ${params.projectId}`);
       }
-      projectRootPath = project.rootPath;
     }
 
-    const resolvedWorkspace = explicitWorkspace ?? projectRootPath;
     const resolvedParams: CreateConversationParams = {
       ...params,
       extra: {
         ...params.extra,
-        workspace: resolvedWorkspace,
-        customWorkspace: explicitWorkspace
-          ? params.extra.customWorkspace
-          : projectRootPath
-            ? true
-            : params.extra.customWorkspace,
+        workspace: explicitWorkspace,
       },
     };
 

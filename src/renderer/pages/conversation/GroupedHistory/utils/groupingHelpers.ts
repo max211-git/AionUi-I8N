@@ -10,7 +10,7 @@ import { getActivityTime } from '@/renderer/utils/chat/timeline';
 import { getWorkspaceDisplayName } from '@/renderer/utils/workspace/workspace';
 import { getWorkspaceUpdateTime } from '@/renderer/utils/workspace/workspaceHistory';
 
-import type { GroupedHistoryResult, TimelineItem, TimelineSection } from '../types';
+import type { GroupedHistoryResult, ProjectGroup, TimelineItem, TimelineSection, WorkspaceGroup } from '../types';
 import { getConversationSortOrder } from './sortOrderHelpers';
 
 export const isConversationPinned = (conversation: TChatConversation): boolean => {
@@ -29,6 +29,43 @@ export const getConversationPinnedAt = (conversation: TChatConversation): number
     return extra.pinnedAt;
   }
   return 0;
+};
+
+const buildProjectGroup = (project: TProject, conversations: TChatConversation[]): ProjectGroup => {
+  const sortedConvs = [...conversations].toSorted((a, b) => getActivityTime(b) - getActivityTime(a));
+  const workspaceGroupsByPath = new Map<string, TChatConversation[]>();
+  const chatConversations: TChatConversation[] = [];
+
+  sortedConvs.forEach((conversation) => {
+    const workspace = conversation.extra?.workspace;
+    if (conversation.extra?.customWorkspace && workspace) {
+      if (!workspaceGroupsByPath.has(workspace)) {
+        workspaceGroupsByPath.set(workspace, []);
+      }
+      workspaceGroupsByPath.get(workspace)?.push(conversation);
+      return;
+    }
+    chatConversations.push(conversation);
+  });
+
+  const workspaceGroups: WorkspaceGroup[] = [...workspaceGroupsByPath.entries()]
+    .map(([workspace, workspaceConversations]) => ({
+      workspace,
+      displayName: getWorkspaceDisplayName(workspace),
+      conversations: workspaceConversations.toSorted((a, b) => getActivityTime(b) - getActivityTime(a)),
+    }))
+    .toSorted((a, b) => {
+      const latestA = Math.max(getWorkspaceUpdateTime(a.workspace), getActivityTime(a.conversations[0]));
+      const latestB = Math.max(getWorkspaceUpdateTime(b.workspace), getActivityTime(b.conversations[0]));
+      return latestB - latestA;
+    });
+
+  return {
+    project,
+    conversations: sortedConvs,
+    chatConversations,
+    workspaceGroups,
+  };
 };
 
 export const groupConversationsByWorkspace = (
@@ -73,15 +110,12 @@ export const groupConversationsByWorkspace = (
     if (!project) {
       return;
     }
-    const sortedConvs = [...convList].toSorted((a, b) => getActivityTime(b) - getActivityTime(a));
-    const latestConversationTime = getActivityTime(sortedConvs[0]);
+    const projectGroup = buildProjectGroup(project, convList);
+    const latestConversationTime = getActivityTime(projectGroup.conversations[0]);
     items.push({
       type: 'project',
       time: latestConversationTime,
-      projectGroup: {
-        project,
-        conversations: sortedConvs,
-      },
+      projectGroup,
     });
   });
 
@@ -150,8 +184,16 @@ export const buildGroupedHistory = (
     (conversation) => !isConversationPinned(conversation) && !isCronJobConversation(conversation)
   );
 
-  const assignedProjectIds = new Set(normalConversations.map((conversation) => conversation.projectId).filter(Boolean));
-  const unassignedProjects = projects.filter((project) => !assignedProjectIds.has(project.id));
+  const projectConversationMap = new Map<string, TChatConversation[]>();
+  normalConversations.forEach((conversation) => {
+    if (!conversation.projectId) {
+      return;
+    }
+    const current = projectConversationMap.get(conversation.projectId) ?? [];
+    current.push(conversation);
+    projectConversationMap.set(conversation.projectId, current);
+  });
+  const unassignedProjects = projects.filter((project) => !projectConversationMap.has(project.id));
 
   return {
     pinnedConversations,

@@ -16,6 +16,8 @@ export type WorkspaceGroup = {
 export type ProjectGroup = {
   project: TProject;
   conversations: TChatConversation[];
+  chatConversations: TChatConversation[];
+  workspaceGroups: WorkspaceGroup[];
 };
 
 export type TimelineItem = {
