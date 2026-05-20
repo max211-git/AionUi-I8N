@@ -515,6 +515,7 @@ export type I18nKey =
   | 'conversation.workspace.migration.success'
   | 'conversation.workspace.migration.targetWorkspace'
   | 'conversation.workspace.migration.title'
+  | 'conversation.workspace.noWorkspaceAssigned'
   | 'conversation.workspace.openWith.explorer'
   | 'conversation.workspace.openWith.terminal'
   | 'conversation.workspace.openWith.vscode'

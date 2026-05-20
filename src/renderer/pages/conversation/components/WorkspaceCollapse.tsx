@@ -42,20 +42,22 @@ const WorkspaceCollapse: React.FC<WorkspaceCollapseProps> = ({
       {/* 折叠头部 - 侧栏折叠时隐藏 */}
       {!siderCollapsed && (
         <div
-          className='flex items-center gap-8px h-40px px-10px cursor-pointer hover:bg-[rgba(var(--primary-6),0.14)] rd-8px transition-colors min-w-0'
+          className='flex items-center gap-8px h-40px px-10px pr-12px cursor-pointer hover:bg-[rgba(var(--primary-6),0.14)] rd-8px transition-colors min-w-0 overflow-hidden'
           onClick={onToggle}
         >
           {/* 展开/收起文件夹图标 — 28px 容器与其他 sider 行对齐 */}
           <span className='w-28px h-28px flex items-center justify-center shrink-0'>
-            {expanded ? (
-              <FolderOpen size={20} className='line-height-0' />
-            ) : (
-              <FolderClose size={20} className='line-height-0' />
-            )}
+            <FolderClose size={20} className='line-height-0 opacity-85' />
           </span>
 
-          {/* 标题内容 */}
           <div className='flex-1 min-w-0 overflow-hidden'>{header}</div>
+          <span className='flex h-20px w-20px items-center justify-center shrink-0 rounded-6px mr-12px'>
+            {expanded ? (
+              <FolderOpen size={12} className='line-height-0 opacity-70' />
+            ) : (
+              <FolderClose size={12} className='line-height-0 opacity-70' />
+            )}
+          </span>
         </div>
       )}
 

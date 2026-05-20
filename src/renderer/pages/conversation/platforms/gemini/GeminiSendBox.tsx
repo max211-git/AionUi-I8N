@@ -91,6 +91,7 @@ const GeminiSendBox: React.FC<{
   sessionMode?: string;
 }> = ({ conversation_id, modelSelection, teamId, agentSlotId, sessionMode }) => {
   const [workspacePath, setWorkspacePath] = useState('');
+  const [displayWorkspacePath, setDisplayWorkspacePath] = useState('');
   const { t } = useTranslation();
   const teamPermission = useTeamPermission();
   // In team mode, all agents show the permission mode selector (members don't propagate)
@@ -159,8 +160,10 @@ const GeminiSendBox: React.FC<{
 
   useEffect(() => {
     void ipcBridge.conversation.get.invoke({ id: conversation_id }).then((res) => {
-      if (!res?.extra?.workspace) return;
-      setWorkspacePath(res.extra.workspace);
+      if (res?.extra?.workspace) {
+        setWorkspacePath(res.extra.workspace);
+      }
+      setDisplayWorkspacePath(res?.extra?.customWorkspace && res.extra.workspace ? res.extra.workspace : '');
     });
   }, [conversation_id]);
 
@@ -237,7 +240,7 @@ const GeminiSendBox: React.FC<{
       setActiveMsgId(msg_id);
       setWaitingResponse(true);
 
-      const displayMessage = buildDisplayMessage(input, files, workspacePath);
+      const displayMessage = buildDisplayMessage(input, files, displayWorkspacePath);
 
       // In team mode, the backend writes the user message via IPC stream.
       // Adding it here too would produce a duplicate bubble.
@@ -306,7 +309,7 @@ const GeminiSendBox: React.FC<{
       removeMessageByMsgId,
       setWaitingResponse,
       teamId,
-      workspacePath,
+      displayWorkspacePath,
     ]
   );
 

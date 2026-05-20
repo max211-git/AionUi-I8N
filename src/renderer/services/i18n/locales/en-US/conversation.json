@@ -213,6 +213,7 @@
       "noStaged": "No staged changes"
     },
     "openWorkspace": "Open workspace folder",
+    "noWorkspaceAssigned": "No assigned folder for this chat",
     "openWith": {
       "vscode": "VS Code",
       "terminal": "Terminal",

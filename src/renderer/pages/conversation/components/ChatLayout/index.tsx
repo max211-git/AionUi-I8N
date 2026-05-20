@@ -55,7 +55,7 @@ const ChatLayout: React.FC<{
   onRenameTitle?: (newName: string) => Promise<boolean>;
 }> = (props) => {
   const { conversationId, workspacePath } = props;
-  const { backend, presetAssistant, agentName, workspaceEnabled = true } = props;
+  const { backend, presetAssistant, agentName, workspaceEnabled = false } = props;
   const layout = useLayoutContext();
   const isMacRuntime = isMacEnvironment();
   const isWindowsRuntime = isWindowsEnvironment();

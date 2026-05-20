@@ -47,7 +47,6 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   const [editingProject, setEditingProject] = useState<TProject | null>(null);
   const [projectName, setProjectName] = useState('');
   const [projectRootPath, setProjectRootPath] = useState('');
-  const [workspacePickerProject, setWorkspacePickerProject] = useState<TProject | null>(null);
   const [teamCreateProject, setTeamCreateProject] = useState<TProject | null>(null);
   const [projectSaving, setProjectSaving] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set());
@@ -284,29 +283,41 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   );
 
   const handleCreateConversationInProject = useCallback(
-    (project: TProject, workspace?: string) => {
+    (project: TProject, options?: { workspace?: string; customWorkspace?: boolean }) => {
       window.sessionStorage.setItem('aionui:create-project-id', project.id);
+      if (options?.workspace) {
+        window.sessionStorage.setItem('aionui:create-workspace', options.workspace);
+      } else {
+        window.sessionStorage.removeItem('aionui:create-workspace');
+      }
+      if (options?.customWorkspace) {
+        window.sessionStorage.setItem('aionui:create-custom-workspace', 'true');
+      } else {
+        window.sessionStorage.removeItem('aionui:create-custom-workspace');
+      }
       navigate('/', {
         state: {
           projectId: project.id,
-          workspace,
+          workspace: options?.workspace,
+          customWorkspace: options?.customWorkspace,
         },
       });
     },
     [navigate]
   );
 
-  const handleSelectProjectWorkspace = useCallback(
-    (paths: string[] | undefined) => {
-      const workspace = paths?.[0]?.trim();
-      const project = workspacePickerProject;
-      setWorkspacePickerProject(null);
-      if (!project || !workspace) {
+  const handleCreateWorkspaceConversationInProject = useCallback(
+    async (project: TProject) => {
+      const result = await ipcBridge.dialog.showOpen.invoke({
+        properties: ['openDirectory', 'createDirectory'],
+      });
+      const workspace = result?.[0]?.trim();
+      if (!workspace) {
         return;
       }
-      handleCreateConversationInProject(project, workspace);
+      handleCreateConversationInProject(project, { workspace, customWorkspace: true });
     },
-    [handleCreateConversationInProject, workspacePickerProject]
+    [handleCreateConversationInProject]
   );
 
   const renderConversation = (conversation: TChatConversation) => {
@@ -348,7 +359,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
         className='!h-28px !w-full !justify-start !px-2 !text-left hover:!bg-fill-3'
         onClick={() => toggleSection(key)}
       >
-        <span className='flex min-w-0 w-full items-center gap-6px pl-18px text-t-secondary'>
+        <span className='flex min-w-0 w-full items-center gap-6px pl-18px pr-18px text-t-secondary'>
           <span className='shrink-0 text-[14px]'>{icon}</span>
           <span className='min-w-0 flex-1 truncate text-12px font-medium'>{label}</span>
           {count !== undefined && (
@@ -356,7 +367,9 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
               {count}
             </span>
           )}
-          {collapsedSections.has(key) ? <Right theme='outline' size={10} /> : <Down theme='outline' size={10} />}
+          <span className='ml-auto mr-6px flex h-16px w-16px items-center justify-center shrink-0'>
+            {collapsedSections.has(key) ? <Right theme='outline' size={10} /> : <Down theme='outline' size={10} />}
+          </span>
         </span>
       </Button>
     );
@@ -392,7 +405,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                         return;
                       }
                       if (key === 'new-workspace-chat') {
-                        setWorkspacePickerProject(project);
+                        void handleCreateWorkspaceConversationInProject(project);
                         return;
                       }
                       if (key === 'new-team') {
@@ -459,23 +472,24 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 <div className='flex flex-col gap-1px'>
                   {workspaceGroups.length > 0
                     ? workspaceGroups.map((group) => (
-                        <WorkspaceCollapse
-                          key={group.workspace}
-                          expanded={expandedWorkspaces.includes(group.workspace)}
-                          onToggle={() => handleToggleWorkspace(group.workspace)}
-                          siderCollapsed={collapsed}
-                          header={
-                            <div className='flex items-center gap-8px text-13px min-w-0'>
-                              <span className='font-medium truncate flex-1 text-t-primary min-w-0'>
-                                {group.displayName}
-                              </span>
+                        <div key={group.workspace} className='pl-18px'>
+                          <WorkspaceCollapse
+                            expanded={expandedWorkspaces.includes(group.workspace)}
+                            onToggle={() => handleToggleWorkspace(group.workspace)}
+                            siderCollapsed={collapsed}
+                            header={
+                              <div className='flex items-center gap-8px text-13px min-w-0'>
+                                <span className='font-medium truncate flex-1 text-t-primary min-w-0'>
+                                  {group.displayName}
+                                </span>
+                              </div>
+                            }
+                          >
+                            <div className={classNames('flex flex-col gap-2px min-w-0', { 'mt-2px': !collapsed })}>
+                              {group.conversations.map((conversation) => renderConversation(conversation))}
                             </div>
-                          }
-                        >
-                          <div className={classNames('flex flex-col gap-2px min-w-0', { 'mt-2px': !collapsed })}>
-                            {group.conversations.map((conversation) => renderConversation(conversation))}
-                          </div>
-                        </WorkspaceCollapse>
+                          </WorkspaceCollapse>
+                        </div>
                       ))
                     : renderPlaceholder(t('conversation.history.projectNoWorkspaceChats'))}
                 </div>
@@ -514,9 +528,48 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
 
   if (timelineSections.length === 0 && pinnedConversations.length === 0 && unassignedProjects.length === 0) {
     return (
-      <div className='py-48px flex-center'>
-        <Empty description={t('conversation.history.noHistory')} />
-      </div>
+      <>
+        <Modal
+          title={t('conversation.history.createProject')}
+          visible={projectModalVisible}
+          onOk={() => void handleCreateProject()}
+          onCancel={() => {
+            setProjectModalVisible(false);
+            setProjectName('');
+            setProjectRootPath('');
+          }}
+          confirmLoading={projectSaving}
+        >
+          <div className='flex flex-col gap-12px'>
+            <Input
+              value={projectName}
+              onChange={setProjectName}
+              placeholder={t('conversation.history.projectNamePlaceholder')}
+            />
+            <Input
+              value={projectRootPath}
+              onChange={setProjectRootPath}
+              placeholder={t('conversation.history.projectFolderPlaceholder')}
+            />
+          </div>
+        </Modal>
+        <div className='mb-8px px-12px'>
+          <Button
+            type='text'
+            long
+            className='!justify-start !px-10px !text-[rgb(var(--warning-5))] hover:!bg-fill-3'
+            onClick={() => setProjectModalVisible(true)}
+          >
+            <span className='flex min-w-0 items-center gap-8px'>
+              <FolderPlus className='text-[16px] shrink-0' />
+              <span className='truncate font-medium'>{t('conversation.history.createProject')}</span>
+            </span>
+          </Button>
+        </div>
+        <div className='py-48px flex-center'>
+          <Empty description={t('conversation.history.noHistory')} />
+        </div>
+      </>
     );
   }
 
@@ -642,12 +695,6 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
         visible={showExportDirectorySelector}
         onConfirm={handleSelectExportDirectoryFromModal}
         onCancel={() => setShowExportDirectorySelector(false)}
-      />
-
-      <DirectorySelectionModal
-        visible={workspacePickerProject !== null}
-        onConfirm={handleSelectProjectWorkspace}
-        onCancel={() => setWorkspacePickerProject(null)}
       />
 
       <TeamCreateModal

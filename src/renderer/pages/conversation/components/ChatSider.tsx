@@ -9,47 +9,52 @@ import { Message } from '@arco-design/web-react';
 import React from 'react';
 import ChatWorkspace from '../Workspace';
 
+const getWorkspaceForInspector = (conversation?: TChatConversation): string => {
+  return conversation?.extra?.workspace || '';
+};
+
 const ChatSider: React.FC<{
   conversation?: TChatConversation;
   teamId?: string;
 }> = ({ conversation, teamId }) => {
   const [messageApi, messageContext] = Message.useMessage({ maxCount: 1 });
+  const workspace = getWorkspaceForInspector(conversation);
 
   let workspaceNode: React.ReactNode = null;
-  if (conversation?.type === 'gemini') {
+  if (conversation?.type === 'gemini' && workspace) {
     workspaceNode = (
       <ChatWorkspace
         conversation_id={conversation.id}
-        workspace={conversation.extra.workspace}
+        workspace={workspace}
         messageApi={messageApi}
         teamId={teamId}
       ></ChatWorkspace>
     );
-  } else if (conversation?.type === 'acp' && conversation.extra?.workspace) {
+  } else if (conversation?.type === 'acp' && workspace) {
     workspaceNode = (
       <ChatWorkspace
         conversation_id={conversation.id}
-        workspace={conversation.extra.workspace}
+        workspace={workspace}
         eventPrefix='acp'
         messageApi={messageApi}
         teamId={teamId}
       ></ChatWorkspace>
     );
-  } else if (conversation?.type === 'codex' && conversation.extra?.workspace) {
+  } else if (conversation?.type === 'codex' && workspace) {
     workspaceNode = (
       <ChatWorkspace
         conversation_id={conversation.id}
-        workspace={conversation.extra.workspace}
+        workspace={workspace}
         eventPrefix='codex'
         messageApi={messageApi}
         teamId={teamId}
       ></ChatWorkspace>
     );
-  } else if (conversation?.type === 'aionrs' && conversation.extra?.workspace) {
+  } else if (conversation?.type === 'aionrs' && workspace) {
     workspaceNode = (
       <ChatWorkspace
         conversation_id={conversation.id}
-        workspace={conversation.extra.workspace}
+        workspace={workspace}
         eventPrefix='aionrs'
         messageApi={messageApi}
         teamId={teamId}

@@ -74,6 +74,10 @@ const loadPersistedState = (): { openTabs: ConversationTab[]; activeTabId: strin
   return { openTabs: [], activeTabId: null };
 };
 
+export const getConversationTabWorkspace = (conversation: TChatConversation): string => {
+  return conversation.extra?.customWorkspace ? (conversation.extra.workspace ?? '') : '';
+};
+
 export const ConversationTabsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // 从 localStorage 恢复初始状态 / Restore initial state from localStorage
   const persistedState = loadPersistedState();
@@ -125,7 +129,7 @@ export const ConversationTabsProvider: React.FC<{ children: React.ReactNode }> =
         {
           id: conversation.id,
           name: conversation.name,
-          workspace: conversation.extra?.workspace || '',
+          workspace: getConversationTabWorkspace(conversation),
           projectId: conversation.projectId,
           type: conversation.type,
         },

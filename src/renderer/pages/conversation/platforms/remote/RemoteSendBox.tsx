@@ -52,6 +52,7 @@ const EMPTY_UPLOAD_FILES: string[] = [];
 
 const RemoteSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id }) => {
   const [workspacePath, setWorkspacePath] = useState('');
+  const [displayWorkspacePath, setDisplayWorkspacePath] = useState('');
   const { t } = useTranslation();
   const { checkAndUpdateTitle } = useAutoTitle();
   const addOrUpdateMessage = useAddOrUpdateMessage();
@@ -223,7 +224,10 @@ const RemoteSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id 
 
   useEffect(() => {
     void ipcBridge.conversation.get.invoke({ id: conversation_id }).then(async (res) => {
-      if (res?.extra?.workspace) setWorkspacePath(res.extra.workspace);
+      if (res?.extra?.workspace) {
+        setWorkspacePath(res.extra.workspace);
+      }
+      setDisplayWorkspacePath(res?.extra?.customWorkspace && res.extra.workspace ? res.extra.workspace : '');
       const extra = res?.extra as { remoteAgentId?: string } | undefined;
       if (extra?.remoteAgentId) {
         const agent = await ipcBridge.remoteAgent.get.invoke({ id: extra.remoteAgentId });
@@ -246,7 +250,7 @@ const RemoteSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id 
         sessionStorage.setItem(processedKey, 'true');
         const { input, files = [] } = JSON.parse(stored) as { input: string; files?: string[] };
         const msg_id = `initial_${conversation_id}_${Date.now()}`;
-        const initialDisplayMessage = buildDisplayMessage(input, files, workspacePath);
+        const initialDisplayMessage = buildDisplayMessage(input, files, displayWorkspacePath);
 
         const userMessage: TMessage = {
           id: msg_id,
@@ -280,7 +284,7 @@ const RemoteSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id 
     // Small delay to let the component mount and response stream listener attach
     const timer = setTimeout(() => void processInitialMessage(), 300);
     return () => clearTimeout(timer);
-  }, [conversation_id, workspacePath, addOrUpdateMessage, checkAndUpdateTitle]);
+  }, [conversation_id, displayWorkspacePath, addOrUpdateMessage, checkAndUpdateTitle]);
 
   const handleFilesAdded = useCallback(
     (pastedFiles: FileMetadata[]) => {
@@ -308,7 +312,7 @@ const RemoteSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id 
   const executeCommand = useCallback(
     async ({ input, files }: Pick<ConversationCommandQueueItem, 'input' | 'files'>) => {
       const msg_id = uuid();
-      const displayMessage = buildDisplayMessage(input, files, workspacePath);
+      const displayMessage = buildDisplayMessage(input, files, displayWorkspacePath);
 
       const userMessage: TMessage = {
         id: msg_id,
@@ -340,7 +344,7 @@ const RemoteSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id 
         throw error;
       }
     },
-    [addOrUpdateMessage, checkAndUpdateTitle, conversation_id, removeMessageByMsgId, workspacePath]
+    [addOrUpdateMessage, checkAndUpdateTitle, conversation_id, displayWorkspacePath, removeMessageByMsgId]
   );
 
   const {

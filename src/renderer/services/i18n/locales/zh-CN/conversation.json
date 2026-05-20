@@ -213,6 +213,7 @@
       "noStaged": "没有已暂存的更改"
     },
     "openWorkspace": "打开工作区文件夹",
+    "noWorkspaceAssigned": "此聊天未分配文件夹",
     "openWith": {
       "vscode": "VS Code",
       "terminal": "终端",

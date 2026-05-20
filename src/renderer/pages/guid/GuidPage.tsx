@@ -42,6 +42,23 @@ const GuidPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const locationState = location.state as {
+    projectId?: string;
+    workspace?: string;
+    customWorkspace?: boolean;
+    resetAssistant?: boolean;
+  } | null;
+  const effectiveLocationState = useMemo(() => {
+    if (locationState) {
+      return locationState;
+    }
+    return {
+      projectId: window.sessionStorage.getItem('aionui:create-project-id') ?? undefined,
+      workspace: window.sessionStorage.getItem('aionui:create-workspace') ?? undefined,
+      customWorkspace: window.sessionStorage.getItem('aionui:create-custom-workspace') === 'true',
+    };
+  }, [locationState]);
+
   const guidContainerRef = useRef<HTMLDivElement>(null);
   const openAssistantDetailsRef = useRef<(() => void) | null>(null);
   const descriptionTextRef = useRef<HTMLDivElement>(null);
@@ -83,13 +100,8 @@ const GuidPage: React.FC = () => {
   const [providerAgentKey, setProviderAgentKey] = useState<'gemini' | 'aionrs'>('aionrs');
   const modelSelection = useGuidModelSelection(providerAgentKey);
 
-  const resetAssistantRequested =
-    (location.state as { resetAssistant?: boolean; projectId?: string } | null)?.resetAssistant === true;
-  const initialProjectIdRef = useRef<string | undefined>(
-    (location.state as { projectId?: string } | null)?.projectId ??
-      window.sessionStorage.getItem('aionui:create-project-id') ??
-      undefined
-  );
+  const resetAssistantRequested = effectiveLocationState?.resetAssistant === true;
+  const initialProjectIdRef = useRef<string | undefined>(effectiveLocationState?.projectId ?? undefined);
   const projectId = initialProjectIdRef.current;
   const agentSelection = useGuidAgentSelection({
     modelList: modelSelection.modelList,
@@ -108,7 +120,7 @@ const GuidPage: React.FC = () => {
   }, [agentSelection.selectedAgent]);
 
   const guidInput = useGuidInput({
-    locationState: location.state as { workspace?: string } | null,
+    locationState: effectiveLocationState,
   });
 
   const mention = useGuidMention({
@@ -164,6 +176,7 @@ const GuidPage: React.FC = () => {
     openTab,
     t,
     projectId,
+    customWorkspace: Boolean(effectiveLocationState?.customWorkspace),
   });
 
   // --- Coordinated handlers (depend on multiple hooks) ---
@@ -355,24 +368,24 @@ const GuidPage: React.FC = () => {
     guidInput.setInput('');
     guidInput.setFiles([]);
     guidInput.setLoading(false);
-    if (!(location.state as { workspace?: string } | null)?.workspace) {
+    if (!effectiveLocationState?.workspace) {
       guidInput.setDir('');
     }
     setIsDescriptionExpanded(false);
-  }, [guidInput.setDir, guidInput.setFiles, guidInput.setInput, guidInput.setLoading, location.key, location.state]);
+  }, [guidInput.setDir, guidInput.setFiles, guidInput.setInput, guidInput.setLoading, location.key, effectiveLocationState]);
 
   useEffect(() => {
-    if (!projectId || (location.state as { projectId?: string } | null)?.projectId === projectId) {
+    if (!projectId || effectiveLocationState?.projectId === projectId) {
       return;
     }
     navigate(`${location.pathname}${location.search}${location.hash}`, {
       replace: true,
       state: {
-        ...(location.state as Record<string, unknown> | null),
+        ...(effectiveLocationState ?? {}),
         projectId,
       },
     });
-  }, [projectId, location.pathname, location.search, location.hash, location.state, navigate]);
+  }, [projectId, location.pathname, location.search, location.hash, effectiveLocationState, navigate]);
 
   // Clear resetAssistant from location.state after the hook has consumed it,
   // so that re-renders don't re-trigger the reset logic.
@@ -386,9 +399,13 @@ const GuidPage: React.FC = () => {
     if (!resetAssistantRequested) return;
     navigate(`${location.pathname}${location.search}${location.hash}`, {
       replace: true,
-      state: projectId ? { projectId } : null,
+      state: {
+        ...(locationState ?? {}),
+        ...(projectId ? { projectId } : {}),
+        resetAssistant: undefined,
+      },
     });
-  }, [projectId, resetAssistantRequested, location.pathname, location.search, location.hash, navigate]);
+  }, [projectId, resetAssistantRequested, location.pathname, location.search, location.hash, locationState, navigate]);
 
   useEffect(() => {
     const node = descriptionTextRef.current;

@@ -31,7 +31,7 @@ export type GuidInputResult = {
 };
 
 type UseGuidInputOptions = {
-  locationState: { workspace?: string } | null;
+  locationState: { workspace?: string; customWorkspace?: boolean } | null;
 };
 
 /**
@@ -49,8 +49,10 @@ export const useGuidInput = ({ locationState }: UseGuidInputOptions): GuidInputR
     const workspace = locationState?.workspace?.trim();
     if (workspace) {
       setDir(workspace);
+      return;
     }
-  }, [locationState]);
+    setDir('');
+  }, [locationState?.workspace]);
 
   // Handle pasted files (append mode to support multiple pastes)
   const handleFilesPasted = useCallback((pastedFiles: FileMetadata[]) => {

@@ -32,6 +32,14 @@ export const getConversationPinnedAt = (conversation: TChatConversation): number
   return 0;
 };
 
+const getConversationWorkspace = (conversation: TChatConversation): string | undefined => {
+  if (conversation.extra?.customWorkspace !== true) {
+    return undefined;
+  }
+  const workspace = conversation.extra?.workspace;
+  return typeof workspace === 'string' && workspace.trim() ? workspace : undefined;
+};
+
 const buildProjectGroup = (
   project: TProject,
   conversations: TChatConversation[],
@@ -42,8 +50,8 @@ const buildProjectGroup = (
   const chatConversations: TChatConversation[] = [];
 
   sortedConvs.forEach((conversation) => {
-    const workspace = conversation.extra?.workspace;
-    if (conversation.extra?.customWorkspace && workspace) {
+    const workspace = getConversationWorkspace(conversation);
+    if (workspace) {
       if (!workspaceGroupsByPath.has(workspace)) {
         workspaceGroupsByPath.set(workspace, []);
       }
@@ -113,10 +121,9 @@ export const groupConversationsByWorkspace = (
       }
     }
 
-    const workspace = conv.extra?.workspace;
-    const customWorkspace = conv.extra?.customWorkspace;
+    const workspace = getConversationWorkspace(conv);
 
-    if (customWorkspace && workspace) {
+    if (workspace) {
       if (!allWorkspaceGroups.has(workspace)) {
         allWorkspaceGroups.set(workspace, []);
       }

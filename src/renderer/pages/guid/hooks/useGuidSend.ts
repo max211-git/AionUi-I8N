@@ -67,6 +67,7 @@ export type GuidSendDeps = {
   openTab: (conversation: TChatConversation) => void;
   t: TFunction;
   projectId?: string;
+  customWorkspace?: boolean;
 };
 
 export type GuidSendResult = {
@@ -114,12 +115,13 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     openTab,
     t,
     projectId,
+    customWorkspace,
   } = deps;
   const sendingRef = useRef(false);
 
   const handleSendImpl = useCallback(async () => {
-    const isCustomWorkspace = !!dir;
     const finalWorkspace = dir || '';
+    const isCustomWorkspace = customWorkspace === true || !!finalWorkspace;
 
     const agentInfo = selectedAgentInfo;
     const isPreset = isPresetAgent;
@@ -183,10 +185,6 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
         });
 
         const conversation = await ipcBridge.conversation.create.invoke(geminiConversationParams);
-        if (projectId) {
-          window.sessionStorage.removeItem('aionui:create-project-id');
-        }
-
         if (!conversation || !conversation.id) {
           throw new Error('Failed to create conversation - conversation object is null or missing id');
         }
@@ -246,10 +244,6 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
 
       try {
         const conversation = await ipcBridge.conversation.create.invoke(openclawConversationParams);
-        if (projectId) {
-          window.sessionStorage.removeItem('aionui:create-project-id');
-        }
-
         if (!conversation || !conversation.id) {
           alert('Failed to create OpenClaw conversation. Please ensure the OpenClaw Gateway is running.');
           return;
@@ -300,10 +294,6 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
 
       try {
         const conversation = await ipcBridge.conversation.create.invoke(nanobotConversationParams);
-        if (projectId) {
-          window.sessionStorage.removeItem('aionui:create-project-id');
-        }
-
         if (!conversation || !conversation.id) {
           alert('Failed to create Nanobot conversation. Please ensure nanobot is installed.');
           return;
@@ -355,10 +345,6 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
             sessionMode: selectedMode,
           },
         });
-        if (projectId) {
-          window.sessionStorage.removeItem('aionui:create-project-id');
-        }
-
         if (!conversation || !conversation.id) {
           alert('Failed to create Aion CLI conversation. Please ensure aionrs is installed.');
           return;
@@ -460,9 +446,9 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
         }
 
         const conversation = await ipcBridge.conversation.create.invoke(agentConversationParams);
-        if (projectId) {
-          window.sessionStorage.removeItem('aionui:create-project-id');
-        }
+        window.sessionStorage.removeItem('aionui:create-project-id');
+        window.sessionStorage.removeItem('aionui:create-workspace');
+        window.sessionStorage.removeItem('aionui:create-custom-workspace');
         if (!conversation || !conversation.id) {
           console.error('Failed to create ACP conversation - conversation object is null or missing id');
           return;
@@ -519,6 +505,8 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
       await handleSendImpl();
     } finally {
       window.sessionStorage.removeItem('aionui:create-project-id');
+      window.sessionStorage.removeItem('aionui:create-workspace');
+      window.sessionStorage.removeItem('aionui:create-custom-workspace');
     }
   }, [handleSendImpl]);
 

@@ -93,6 +93,7 @@ const AionrsSendBox: React.FC<{
   sessionMode?: string;
 }> = ({ conversation_id, modelSelection, teamId, agentSlotId, sessionMode }) => {
   const [workspacePath, setWorkspacePath] = useState('');
+  const [displayWorkspacePath, setDisplayWorkspacePath] = useState('');
   const [dynamicModes, setDynamicModes] = useState<AgentModeOption[]>([]);
   const { t } = useTranslation();
   const { checkAndUpdateTitle } = useAutoTitle();
@@ -112,8 +113,10 @@ const AionrsSendBox: React.FC<{
 
   useEffect(() => {
     void ipcBridge.conversation.get.invoke({ id: conversation_id }).then((res) => {
-      if (!res?.extra?.workspace) return;
-      setWorkspacePath(res.extra.workspace);
+      if (res?.extra?.workspace) {
+        setWorkspacePath(res.extra.workspace);
+      }
+      setDisplayWorkspacePath(res?.extra?.customWorkspace && res.extra.workspace ? res.extra.workspace : '');
     });
   }, [conversation_id]);
 
@@ -164,7 +167,7 @@ const AionrsSendBox: React.FC<{
       setActiveMsgId(msg_id);
       setWaitingResponse(true);
 
-      const displayMessage = buildDisplayMessage(input, files, workspacePath);
+      const displayMessage = buildDisplayMessage(input, files, displayWorkspacePath);
       if (!teamId) {
         addOrUpdateMessage(
           {
@@ -230,7 +233,7 @@ const AionrsSendBox: React.FC<{
       removeMessageByMsgId,
       setWaitingResponse,
       teamId,
-      workspacePath,
+      displayWorkspacePath,
     ]
   );
 

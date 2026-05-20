@@ -90,11 +90,22 @@ const _AssociatedConversation: React.FC<{ conversation_id: string }> = ({ conver
   );
 };
 
+const getAssignedWorkspace = (conversation?: TChatConversation): string => {
+  if (!conversation?.extra?.customWorkspace) {
+    return '';
+  }
+  return conversation.extra.workspace || '';
+};
+
+const getRuntimeWorkspace = (conversation?: TChatConversation): string => {
+  return conversation?.extra?.workspace || '';
+};
+
 const _AddNewConversation: React.FC<{ conversation: TChatConversation }> = ({ conversation }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isCreatingRef = useRef(false);
-  if (!conversation.extra?.workspace) return null;
+  if (!getAssignedWorkspace(conversation)) return null;
   return (
     <Tooltip content={t('conversation.workspace.createNewConversation')}>
       <Button
@@ -155,7 +166,9 @@ const GeminiConversationPanel: React.FC<{
 
   // Share model selection state between header and send box
   const modelSelection = useGeminiModelSelection({ initialModel: conversation.model, onSelectModel });
-  const workspaceEnabled = Boolean(conversation.extra?.workspace);
+  const assignedWorkspace = getAssignedWorkspace(conversation);
+  const runtimeWorkspace = getRuntimeWorkspace(conversation);
+  const workspaceEnabled = Boolean(runtimeWorkspace);
 
   // 使用统一的 Hook 获取预设助手信息 / Use unified hook for preset assistant info
   const { info: presetAssistantInfo } = usePresetAssistantInfo(conversation);
@@ -182,10 +195,10 @@ const GeminiConversationPanel: React.FC<{
   };
 
   return (
-    <ChatLayout {...chatLayoutProps} conversationId={conversation.id} workspacePath={conversation.extra.workspace}>
+    <ChatLayout {...chatLayoutProps} conversationId={conversation.id} workspacePath={assignedWorkspace}>
       <GeminiChat
         conversation_id={conversation.id}
-        workspace={conversation.extra.workspace}
+        workspace={runtimeWorkspace}
         modelSelection={modelSelection}
         cronJobId={conversation.extra?.cronJobId as string | undefined}
         hideSendBox={hideSendBox}
@@ -216,7 +229,9 @@ const AionrsConversationPanel: React.FC<{ conversation: AionrsConversation; slid
     initialModel: conversation.model,
     onSelectModel,
   });
-  const workspaceEnabled = Boolean(conversation.extra?.workspace);
+  const assignedWorkspace = getAssignedWorkspace(conversation);
+  const runtimeWorkspace = getRuntimeWorkspace(conversation);
+  const workspaceEnabled = Boolean(runtimeWorkspace);
   const { info: presetAssistantInfo } = usePresetAssistantInfo(conversation);
   const aionrsAssistantId = resolveAssistantConfigId(conversation) ?? undefined;
 
@@ -244,7 +259,7 @@ const AionrsConversationPanel: React.FC<{ conversation: AionrsConversation; slid
     <ChatLayout {...chatLayoutProps} conversationId={conversation.id}>
       <AionrsChat
         conversation_id={conversation.id}
-        workspace={conversation.extra.workspace}
+        workspace={runtimeWorkspace}
         modelSelection={modelSelection}
         sessionMode={conversation.extra?.sessionMode}
       />
@@ -258,7 +273,9 @@ const ChatConversation: React.FC<{
 }> = ({ conversation, hideSendBox }) => {
   const { t } = useTranslation();
   const { openPreview } = usePreviewContext();
-  const workspaceEnabled = Boolean(conversation?.extra?.workspace);
+  const assignedWorkspace = getAssignedWorkspace(conversation);
+  const runtimeWorkspace = getRuntimeWorkspace(conversation);
+  const workspaceEnabled = Boolean(runtimeWorkspace);
 
   const isGeminiConversation = conversation?.type === 'gemini';
   const isAionrsConversation = conversation?.type === 'aionrs';
@@ -280,7 +297,7 @@ const ChatConversation: React.FC<{
           <AcpChat
             key={conversation.id}
             conversation_id={conversation.id}
-            workspace={conversation.extra?.workspace}
+            workspace={runtimeWorkspace}
             backend={conversation.extra?.backend || 'claude'}
             sessionMode={conversation.extra?.sessionMode}
             cachedConfigOptions={conversation.extra?.cachedConfigOptions}
@@ -294,7 +311,7 @@ const ChatConversation: React.FC<{
           <AcpChat
             key={conversation.id}
             conversation_id={conversation.id}
-            workspace={conversation.extra?.workspace}
+            workspace={runtimeWorkspace}
             backend='codex'
             agentName={assistantDisplayName}
             cachedConfigOptions={
@@ -312,7 +329,7 @@ const ChatConversation: React.FC<{
           <OpenClawChat
             key={conversation.id}
             conversation_id={conversation.id}
-            workspace={conversation.extra?.workspace}
+            workspace={runtimeWorkspace}
             cronJobId={(conversation.extra as { cronJobId?: string })?.cronJobId}
           />
         );
@@ -321,7 +338,7 @@ const ChatConversation: React.FC<{
           <NanobotChat
             key={conversation.id}
             conversation_id={conversation.id}
-            workspace={conversation.extra?.workspace}
+            workspace={runtimeWorkspace}
             cronJobId={(conversation.extra as { cronJobId?: string })?.cronJobId}
           />
         );
@@ -330,7 +347,7 @@ const ChatConversation: React.FC<{
           <RemoteChat
             key={conversation.id}
             conversation_id={conversation.id}
-            workspace={conversation.extra?.workspace}
+            workspace={runtimeWorkspace}
             cronJobId={(conversation.extra as { cronJobId?: string })?.cronJobId}
           />
         );
@@ -445,7 +462,7 @@ const ChatConversation: React.FC<{
       siderTitle={sliderTitle}
       sider={<ChatSider conversation={conversation} />}
       workspaceEnabled={workspaceEnabled}
-      workspacePath={conversation?.extra?.workspace}
+      workspacePath={assignedWorkspace}
       conversationId={conversation?.id}
     >
       {conversationNode}
