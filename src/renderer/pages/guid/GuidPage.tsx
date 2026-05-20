@@ -372,7 +372,14 @@ const GuidPage: React.FC = () => {
       guidInput.setDir('');
     }
     setIsDescriptionExpanded(false);
-  }, [guidInput.setDir, guidInput.setFiles, guidInput.setInput, guidInput.setLoading, location.key, effectiveLocationState]);
+  }, [
+    guidInput.setDir,
+    guidInput.setFiles,
+    guidInput.setInput,
+    guidInput.setLoading,
+    location.key,
+    effectiveLocationState,
+  ]);
 
   useEffect(() => {
     if (!projectId || effectiveLocationState?.projectId === projectId) {
@@ -381,7 +388,7 @@ const GuidPage: React.FC = () => {
     navigate(`${location.pathname}${location.search}${location.hash}`, {
       replace: true,
       state: {
-        ...(effectiveLocationState ?? {}),
+        ...effectiveLocationState,
         projectId,
       },
     });
@@ -400,7 +407,7 @@ const GuidPage: React.FC = () => {
     navigate(`${location.pathname}${location.search}${location.hash}`, {
       replace: true,
       state: {
-        ...(locationState ?? {}),
+        ...locationState,
         ...(projectId ? { projectId } : {}),
         resetAssistant: undefined,
       },

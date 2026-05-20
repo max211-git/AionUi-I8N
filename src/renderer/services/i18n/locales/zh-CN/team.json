@@ -24,6 +24,9 @@
     "assignProjectCancel": "取消",
     "assignProjectSuccess": "团队已移动到项目",
     "assignProjectFailed": "移动团队到项目失败",
+    "removeFromProject": "从项目中移除",
+    "removeFromProjectSuccess": "团队已从项目中移除",
+    "removeFromProjectFailed": "从项目中移除团队失败",
     "assignProjectLoadFailed": "加载项目列表失败"
   },
   "newAgent": "新成员",

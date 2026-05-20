@@ -46,6 +46,7 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
     onTogglePin,
     onAssignProject,
     projects,
+    currentProjectId,
     getJobStatus,
   } = props;
   const { t } = useTranslation();
@@ -54,6 +55,9 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
   const cronStatus = getJobStatus(conversation.id);
   const siderTooltipProps = getSiderTooltipProps(tooltipEnabled);
   const inlineNameTooltipEnabled = !collapsed && !isMobile && !!conversation.name;
+  const availableProjects = currentProjectId
+    ? (projects ?? []).filter((project) => project.id !== currentProjectId)
+    : (projects ?? []);
 
   const renderLeadingIcon = () => {
     if (cronStatus !== 'none') {
@@ -255,7 +259,7 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
                       <Menu.Item key='project:none'>
                         <span>{t('conversation.history.removeFromProject')}</span>
                       </Menu.Item>
-                      {projects.map((project) => (
+                      {availableProjects.map((project) => (
                         <Menu.Item key={`project:${project.id}`}>
                           <span>{project.name}</span>
                         </Menu.Item>

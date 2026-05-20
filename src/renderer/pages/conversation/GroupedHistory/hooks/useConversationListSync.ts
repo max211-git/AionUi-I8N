@@ -233,6 +233,10 @@ const initializeConversationListSyncStore = () => {
   });
 };
 
+export const refreshConversationListSync = () => {
+  refreshConversations();
+};
+
 export const useConversationListSync = () => {
   useEffect(() => {
     initializeConversationListSyncStore();

@@ -13,7 +13,7 @@ import TeamCreateModal from '@/renderer/pages/team/components/TeamCreateModal';
 import { CronJobIndicator, useCronJobsMap } from '@/renderer/pages/cron';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Button, Dropdown, Empty, Input, Menu, Message, Modal } from '@arco-design/web-react';
+import { Button, Dropdown, Empty, Input, Menu, Message, Modal, Select } from '@arco-design/web-react';
 import { Application, Code, Comment, Down, FolderOpen, FolderPlus, MoreOne, Peoples, Right } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import WorkspaceCollapse from '../components/WorkspaceCollapse';
+import WorkspaceChatCreateModal from './components/WorkspaceChatCreateModal';
 import ConversationRow from './ConversationRow';
 import DragOverlayContent from './DragOverlayContent';
 import SortableConversationRow from './SortableConversationRow';
@@ -29,6 +30,7 @@ import { useConversationActions } from './hooks/useConversationActions';
 import { useConversations } from './hooks/useConversations';
 import { useDragAndDrop } from './hooks/useDragAndDrop';
 import { useExport } from './hooks/useExport';
+import { refreshConversationListSync } from './hooks/useConversationListSync';
 import type { ConversationRowProps, ProjectGroup, WorkspaceGroupedHistoryProps } from './types';
 
 const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
@@ -47,6 +49,11 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   const [editingProject, setEditingProject] = useState<TProject | null>(null);
   const [projectName, setProjectName] = useState('');
   const [projectRootPath, setProjectRootPath] = useState('');
+  const [teamAssignProjectVisible, setTeamAssignProjectVisible] = useState(false);
+  const [teamAssignProjectLoading, setTeamAssignProjectLoading] = useState(false);
+  const [teamAssignProjectTeam, setTeamAssignProjectTeam] = useState<TTeam | null>(null);
+  const [teamAssignProjectId, setTeamAssignProjectId] = useState<string | undefined>(undefined);
+  const [workspaceChatCreateProject, setWorkspaceChatCreateProject] = useState<TProject | null>(null);
   const [teamCreateProject, setTeamCreateProject] = useState<TProject | null>(null);
   const [projectSaving, setProjectSaving] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set());
@@ -74,7 +81,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     hasCompletionUnread,
     expandedWorkspaces,
     pinnedConversations,
-    unassignedProjects,
+    projectGroups,
     timelineSections,
     handleToggleWorkspace,
   } = useConversations();
@@ -162,6 +169,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       onTogglePin: handleTogglePin,
       onAssignProject: handleAssignProject,
       projects,
+      currentProjectId: conversation.projectId,
       getJobStatus,
     }),
     [
@@ -185,6 +193,11 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       projects,
       getJobStatus,
     ]
+  );
+
+  const assignableProjects = useMemo(
+    () => projects.filter((project) => project.id !== teamAssignProjectTeam?.projectId),
+    [projects, teamAssignProjectTeam]
   );
 
   const handleCreateProject = useCallback(async () => {
@@ -218,6 +231,57 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     setProjectRootPath(project.rootPath ?? '');
     setProjectEditModalVisible(true);
   }, []);
+
+  const handleOpenTeamAssignProject = useCallback(
+    async (team: TTeam) => {
+      setTeamAssignProjectTeam(team);
+      setTeamAssignProjectId(team.projectId);
+      setTeamAssignProjectVisible(true);
+      try {
+        await ipcBridge.project.list.invoke();
+      } catch (error) {
+        console.error('[GroupedHistory] Failed to load projects for team assignment:', error);
+        Message.error(t('team.sider.assignProjectLoadFailed'));
+      }
+    },
+    [t]
+  );
+
+  const handleConfirmTeamAssignProject = useCallback(async () => {
+    if (!teamAssignProjectTeam) {
+      return;
+    }
+    setTeamAssignProjectLoading(true);
+    try {
+      const result = await ipcBridge.team.updateProject.invoke({
+        teamId: teamAssignProjectTeam.id,
+        projectId: teamAssignProjectId,
+      });
+      const maybeError = result as unknown;
+      if (maybeError && typeof maybeError === 'object' && '__bridgeError' in maybeError && maybeError.__bridgeError) {
+        throw new Error(
+          'message' in maybeError && typeof maybeError.message === 'string'
+            ? maybeError.message
+            : 'Failed to update team project'
+        );
+      }
+      Message.success(
+        teamAssignProjectId ? t('team.sider.assignProjectSuccess') : t('team.sider.removeFromProjectSuccess')
+      );
+      refreshConversationListSync();
+      setTeamAssignProjectVisible(false);
+      setTeamAssignProjectLoading(false);
+      setTeamAssignProjectTeam(null);
+      setTeamAssignProjectId(undefined);
+    } catch (error) {
+      console.error('[GroupedHistory] Failed to update team project:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      Message.error(
+        message || (teamAssignProjectId ? t('team.sider.assignProjectFailed') : t('team.sider.removeFromProjectFailed'))
+      );
+      setTeamAssignProjectLoading(false);
+    }
+  }, [t, teamAssignProjectId, teamAssignProjectTeam]);
 
   const handleSaveProject = useCallback(async () => {
     if (!editingProject) {
@@ -306,43 +370,90 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     [navigate]
   );
 
-  const handleCreateWorkspaceConversationInProject = useCallback(
-    async (project: TProject) => {
-      const result = await ipcBridge.dialog.showOpen.invoke({
-        properties: ['openDirectory', 'createDirectory'],
-      });
-      const workspace = result?.[0]?.trim();
-      if (!workspace) {
-        return;
-      }
-      handleCreateConversationInProject(project, { workspace, customWorkspace: true });
-    },
-    [handleCreateConversationInProject]
-  );
-
   const renderConversation = (conversation: TChatConversation) => {
     const rowProps = getConversationRowProps(conversation);
+    if (!collapsed) {
+      return <ConversationRow key={conversation.id} {...rowProps} />;
+    }
     return <ConversationRow key={conversation.id} {...rowProps} />;
   };
 
-  const renderTeam = (team: TTeam) => (
-    <Button
-      key={team.id}
-      type='text'
-      className='!h-30px !w-full !justify-start !px-2 !text-left hover:!bg-fill-3'
-      onClick={() => {
-        void Promise.resolve(navigate(`/team/${team.id}`));
-        onSessionClick?.();
-      }}
-    >
-      <span className='ml-34px flex min-w-0 w-full items-center gap-8px'>
-        <span className='flex-center h-20px w-20px shrink-0 rounded-6px bg-[rgba(var(--success-6),0.12)] text-[rgb(var(--success-6))]'>
-          <Peoples theme='outline' size='13' />
-        </span>
-        <span className='min-w-0 flex-1 truncate text-13px text-t-primary'>{team.name}</span>
-      </span>
-    </Button>
-  );
+  const renderTeam = (team: TTeam) => {
+    if (collapsed) {
+      return (
+        <div key={team.id} className='conversation-item [&.conversation-item+&.conversation-item]:mt-2px'>
+          <button
+            type='button'
+            className='chat-history__item h-40px rd-8px flex items-center justify-center cursor-pointer relative overflow-hidden min-w-0 w-full bg-transparent px-0 transition-colors hover:bg-[rgba(var(--success-6),0.12)]'
+            onClick={() => {
+              void Promise.resolve(navigate(`/team/${team.id}`));
+              onSessionClick?.();
+            }}
+          >
+            <span className='w-28px h-28px flex items-center justify-center shrink-0 mx-auto'>
+              <span className='flex-center h-24px w-24px shrink-0 rounded-8px bg-[rgba(var(--success-6),0.12)] text-[rgb(var(--success-6))]'>
+                <Peoples theme='outline' size='16' />
+              </span>
+            </span>
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div key={team.id} className='group relative'>
+        <Button
+          type='text'
+          className='!h-30px !w-full !justify-start !pl-2 !pr-40px !text-left hover:!bg-fill-3'
+          onClick={() => {
+            void Promise.resolve(navigate(`/team/${team.id}`));
+            onSessionClick?.();
+          }}
+        >
+          <div className='ml-34px flex min-w-0 items-center gap-8px'>
+            <span className='flex-center h-20px w-20px shrink-0 rounded-6px bg-[rgba(var(--success-6),0.12)] text-[rgb(var(--success-6))]'>
+              <Peoples theme='outline' size='13' />
+            </span>
+            <span className='min-w-0 flex-1 truncate text-13px text-t-primary'>{team.name}</span>
+          </div>
+        </Button>
+        <div
+          className='absolute right-8px top-0 flex h-30px items-center justify-end'
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <Dropdown
+            droplist={
+              <Menu
+                onClickMenuItem={(key) => {
+                  if (key === 'move-project') {
+                    void handleOpenTeamAssignProject(team);
+                    return;
+                  }
+                  if (key === 'remove-project') {
+                    setTeamAssignProjectTeam(team);
+                    setTeamAssignProjectId(undefined);
+                    setTeamAssignProjectVisible(true);
+                  }
+                }}
+              >
+                <Menu.Item key='move-project'>{t('team.sider.moveToProject')}</Menu.Item>
+                <Menu.Item key='remove-project'>{t('team.sider.removeFromProject')}</Menu.Item>
+              </Menu>
+            }
+            trigger='click'
+            position='br'
+            getPopupContainer={() => document.body}
+          >
+            <span className='flex-center h-24px w-24px shrink-0 rd-6px text-t-secondary hover:bg-fill-2 hover:text-t-primary'>
+              <MoreOne theme='outline' size='16' />
+            </span>
+          </Dropdown>
+        </div>
+      </div>
+    );
+  };
 
   const renderProjectGroup = (projectGroup: ProjectGroup) => {
     const { project, conversations: projectConversations, chatConversations, workspaceGroups, teams } = projectGroup;
@@ -380,6 +491,35 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       </div>
     );
 
+    if (collapsed) {
+      return (
+        <React.Fragment key={project.id}>
+          <div className='conversation-item [&.conversation-item+&.conversation-item]:mt-2px'>
+            <button
+              type='button'
+              className='chat-history__item h-40px rd-8px flex items-center justify-center cursor-pointer relative overflow-hidden min-w-0 w-full bg-transparent px-0 transition-colors hover:bg-[rgba(var(--primary-6),0.14)]'
+              onClick={() => toggleSection(sectionKey)}
+            >
+              <span className='w-28px h-28px flex items-center justify-center shrink-0'>
+                <span className='flex-center h-24px w-24px shrink-0 rounded-8px bg-[rgba(var(--primary-6),0.14)] text-[rgb(var(--primary-6))]'>
+                  <Application theme='outline' size='16' />
+                </span>
+              </span>
+            </button>
+          </div>
+          {!isCollapsed && (
+            <>
+              {chatConversations.map((conversation) => renderConversation(conversation))}
+              {workspaceGroups.map((group) =>
+                group.conversations.map((conversation) => renderConversation(conversation))
+              )}
+              {teams.map((team) => renderTeam(team))}
+            </>
+          )}
+        </React.Fragment>
+      );
+    }
+
     return (
       <div key={project.id} className='mb-2 px-8px'>
         <div className='rounded-12px border border-solid border-[rgba(var(--primary-6),0.18)] bg-[rgba(var(--primary-6),0.06)] p-4px'>
@@ -405,7 +545,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                         return;
                       }
                       if (key === 'new-workspace-chat') {
-                        void handleCreateWorkspaceConversationInProject(project);
+                        setWorkspaceChatCreateProject(project);
                         return;
                       }
                       if (key === 'new-team') {
@@ -472,7 +612,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 <div className='flex flex-col gap-1px'>
                   {workspaceGroups.length > 0
                     ? workspaceGroups.map((group) => (
-                        <div key={group.workspace} className='pl-18px'>
+                        <div key={group.workspace} className={classNames({ 'pl-18px': !collapsed })}>
                           <WorkspaceCollapse
                             expanded={expandedWorkspaces.includes(group.workspace)}
                             onToggle={() => handleToggleWorkspace(group.workspace)}
@@ -526,7 +666,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   // Collect all sortable IDs for the pinned section
   const pinnedIds = useMemo(() => pinnedConversations.map((c) => c.id), [pinnedConversations]);
 
-  if (timelineSections.length === 0 && pinnedConversations.length === 0 && unassignedProjects.length === 0) {
+  if (timelineSections.length === 0 && pinnedConversations.length === 0 && projectGroups.length === 0) {
     return (
       <>
         <Modal
@@ -697,6 +837,56 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
         onCancel={() => setShowExportDirectorySelector(false)}
       />
 
+      <WorkspaceChatCreateModal
+        visible={workspaceChatCreateProject !== null}
+        project={workspaceChatCreateProject}
+        onCancel={() => setWorkspaceChatCreateProject(null)}
+        onCreated={() => setWorkspaceChatCreateProject(null)}
+      />
+
+      <Modal
+        title={t('team.sider.assignProjectTitle')}
+        visible={teamAssignProjectVisible}
+        onCancel={() => {
+          setTeamAssignProjectVisible(false);
+          setTeamAssignProjectTeam(null);
+          setTeamAssignProjectId(undefined);
+          setTeamAssignProjectLoading(false);
+        }}
+        onOk={() => void handleConfirmTeamAssignProject()}
+        confirmLoading={teamAssignProjectLoading}
+      >
+        <div className='flex flex-col gap-12px'>
+          <div className='text-13px text-t-secondary'>
+            {teamAssignProjectTeam
+              ? t('team.sider.assignProjectDescription', { name: teamAssignProjectTeam.name })
+              : ''}
+          </div>
+          <Select
+            value={teamAssignProjectId ?? '__none__'}
+            onChange={(value) => setTeamAssignProjectId(value === '__none__' ? undefined : value)}
+            renderFormat={(option) => {
+              const optionValue = (option as { value?: string })?.value;
+              if (!optionValue) {
+                return '';
+              }
+              if (optionValue === '__none__') {
+                return t('team.sider.removeFromProject');
+              }
+              return assignableProjects.find((project) => project.id === optionValue)?.name ?? optionValue;
+            }}
+            placeholder={t('team.sider.assignProjectPlaceholder')}
+          >
+            <Select.Option value='__none__'>{t('team.sider.removeFromProject')}</Select.Option>
+            {assignableProjects.map((project) => (
+              <Select.Option key={project.id} value={project.id}>
+                {project.name}
+              </Select.Option>
+            ))}
+          </Select>
+        </div>
+      </Modal>
+
       <TeamCreateModal
         visible={teamCreateProject !== null}
         projectId={teamCreateProject?.id}
@@ -807,7 +997,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           </Button>
         </div>
 
-        {unassignedProjects.length > 0 && !collapsed && (
+        {projectGroups.length > 0 && (
           <div className='mb-8px min-w-0'>
             {!collapsed && (
               <div
@@ -827,15 +1017,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
               </div>
             )}
             {!collapsedSections.has('projects') &&
-              unassignedProjects.map((project) =>
-                renderProjectGroup({
-                  project,
-                  conversations: [],
-                  chatConversations: [],
-                  workspaceGroups: [],
-                  teams: [],
-                })
-              )}
+              projectGroups.map((projectGroup) => renderProjectGroup(projectGroup))}
           </div>
         )}
 

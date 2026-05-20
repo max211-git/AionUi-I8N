@@ -24,6 +24,9 @@
     "assignProjectCancel": "Cancel",
     "assignProjectSuccess": "Team moved to project",
     "assignProjectFailed": "Failed to move team to project",
+    "removeFromProject": "Remove from project",
+    "removeFromProjectSuccess": "Team removed from project",
+    "removeFromProjectFailed": "Failed to remove team from project",
     "assignProjectLoadFailed": "Failed to load projects"
   },
   "newAgent": "New Agent",

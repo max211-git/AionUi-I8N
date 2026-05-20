@@ -22,6 +22,7 @@ import '@/common/adapter/browser';
 import type { PropsWithChildren } from 'react';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { Alert } from '@arco-design/web-react';
 
 // Context providers
 import { AuthProvider } from './hooks/context/AuthContext';
@@ -97,6 +98,49 @@ const AppProviders: React.FC<PropsWithChildren> = ({ children }) =>
     )
   );
 
+type RootErrorBoundaryState = {
+  error: Error | null;
+};
+
+class RootErrorBoundary extends React.Component<PropsWithChildren, RootErrorBoundaryState> {
+  public state: RootErrorBoundaryState = {
+    error: null,
+  };
+
+  public static getDerivedStateFromError(error: Error): RootErrorBoundaryState {
+    return { error };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    console.error('[RendererRoot] Uncaught render error', error, errorInfo);
+  }
+
+  public render(): React.ReactNode {
+    if (this.state.error) {
+      return (
+        <div className='flex min-h-screen items-center justify-center bg-bg-1 p-24px'>
+          <div className='max-w-720px w-full'>
+            <Alert
+              type='error'
+              title='Renderer crash'
+              content={
+                <div className='space-y-8px text-13px'>
+                  <div>{this.state.error.message}</div>
+                  <pre className='max-h-320px overflow-auto whitespace-pre-wrap rounded-8px bg-fill-2 p-12px text-12px text-t-secondary'>
+                    {this.state.error.stack ?? 'No stack trace available'}
+                  </pre>
+                </div>
+              }
+            />
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 const Config: React.FC<PropsWithChildren> = ({ children }) => {
   const {
     i18n: { language },
@@ -129,4 +173,6 @@ const App = HOC.Wrapper(Config)(Main);
 void registerPwa();
 
 const root = createRoot(document.getElementById('root')!);
-root.render(React.createElement(AppProviders, null, React.createElement(App)));
+root.render(
+  React.createElement(AppProviders, null, React.createElement(RootErrorBoundary, null, React.createElement(App)))
+);

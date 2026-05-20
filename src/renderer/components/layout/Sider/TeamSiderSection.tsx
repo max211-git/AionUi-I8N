@@ -95,6 +95,11 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
     [t]
   );
 
+  const assignableProjects = useMemo(
+    () => projects.filter((project) => project.id !== assignTeam?.projectId),
+    [projects, assignTeam]
+  );
+
   const handleAssignProjectConfirm = useCallback(async () => {
     if (!assignTeam || !selectedProjectId) {
       return;
@@ -343,11 +348,17 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
           value={selectedProjectId}
           onChange={(value) => setSelectedProjectId(value || undefined)}
           allowClear
-          options={projects.map((project) => ({
-            label: project.name,
-            value: project.id,
-          }))}
-        />
+          renderFormat={(option) => {
+            const optionValue = (option as { value?: string })?.value;
+            return assignableProjects.find((project) => project.id === optionValue)?.name ?? optionValue ?? '';
+          }}
+        >
+          {assignableProjects.map((project) => (
+            <Select.Option key={project.id} value={project.id}>
+              {project.name}
+            </Select.Option>
+          ))}
+        </Select>
       </Modal>
     </>
   );

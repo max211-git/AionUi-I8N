@@ -37,7 +37,7 @@ export type TimelineSection = {
 
 export type GroupedHistoryResult = {
   pinnedConversations: TChatConversation[];
-  unassignedProjects: TProject[];
+  projectGroups: ProjectGroup[];
   unassignedTeams: TTeam[];
   timelineSections: TimelineSection[];
 };
@@ -73,6 +73,7 @@ export type ConversationRowProps = {
   onTogglePin: (conversation: TChatConversation) => void;
   onAssignProject?: (conversation: TChatConversation, projectId?: string) => void;
   projects?: TProject[];
+  currentProjectId?: string;
   getJobStatus: (conversationId: string) => 'none' | 'active' | 'paused' | 'error' | 'unread';
 };
 

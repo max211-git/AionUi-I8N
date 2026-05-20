@@ -40,6 +40,53 @@ const getConversationWorkspace = (conversation: TChatConversation): string | und
   return typeof workspace === 'string' && workspace.trim() ? workspace : undefined;
 };
 
+const getLatestActivityTime = (conversations: TChatConversation[]): number => {
+  if (conversations.length === 0) {
+    return 0;
+  }
+
+  return conversations.reduce((latest, conversation) => Math.max(latest, getActivityTime(conversation)), 0);
+};
+
+const buildProjectConversationMaps = (conversations: TChatConversation[], projects: TProject[], teams: TTeam[]) => {
+  const projectMap = new Map(projects.map((project) => [project.id, project]));
+  const allProjectIds = new Set<string>(projects.map((project) => project.id));
+  const allProjectGroups = new Map<string, TChatConversation[]>();
+  const teamsByProject = new Map<string, TTeam[]>();
+
+  teams.forEach((team) => {
+    if (!team.projectId) {
+      return;
+    }
+    allProjectIds.add(team.projectId);
+    if (!teamsByProject.has(team.projectId)) {
+      teamsByProject.set(team.projectId, []);
+    }
+    teamsByProject.get(team.projectId)?.push(team);
+  });
+
+  conversations.forEach((conv) => {
+    if (!conv.projectId) {
+      return;
+    }
+    const project = projectMap.get(conv.projectId);
+    if (!project) {
+      return;
+    }
+    allProjectIds.add(project.id);
+    if (!allProjectGroups.has(project.id)) {
+      allProjectGroups.set(project.id, []);
+    }
+    allProjectGroups.get(project.id)?.push(conv);
+  });
+
+  return {
+    allProjectIds,
+    allProjectGroups,
+    teamsByProject,
+  };
+};
+
 const buildProjectGroup = (
   project: TProject,
   conversations: TChatConversation[],
@@ -68,8 +115,8 @@ const buildProjectGroup = (
       conversations: workspaceConversations.toSorted((a, b) => getActivityTime(b) - getActivityTime(a)),
     }))
     .toSorted((a, b) => {
-      const latestA = Math.max(getWorkspaceUpdateTime(a.workspace), getActivityTime(a.conversations[0]));
-      const latestB = Math.max(getWorkspaceUpdateTime(b.workspace), getActivityTime(b.conversations[0]));
+      const latestA = Math.max(getWorkspaceUpdateTime(a.workspace), getLatestActivityTime(a.conversations));
+      const latestB = Math.max(getWorkspaceUpdateTime(b.workspace), getLatestActivityTime(b.conversations));
       return latestB - latestA;
     });
 
@@ -94,17 +141,11 @@ export const groupConversationsByWorkspace = (
     return [];
   }
   const projectMap = new Map(projects.map((project) => [project.id, project]));
-  const teamsByProject = new Map<string, TTeam[]>();
-  teams.forEach((team) => {
-    if (!team.projectId || !projectMap.has(team.projectId)) {
-      return;
-    }
-    const current = teamsByProject.get(team.projectId) ?? [];
-    current.push(team);
-    teamsByProject.set(team.projectId, current);
-  });
-  const allProjectIds = new Set<string>(teamsByProject.keys());
-  const allProjectGroups = new Map<string, TChatConversation[]>();
+  const { allProjectIds, allProjectGroups, teamsByProject } = buildProjectConversationMaps(
+    conversations,
+    projects,
+    teams
+  );
   const allWorkspaceGroups = new Map<string, TChatConversation[]>();
   const withoutWorkspaceConvs: TChatConversation[] = [];
 
@@ -145,7 +186,7 @@ export const groupConversationsByWorkspace = (
       allProjectGroups.get(projectId) ?? [],
       teamsByProject.get(projectId) ?? []
     );
-    const latestConversationTime = getActivityTime(projectGroup.conversations[0]);
+    const latestConversationTime = getLatestActivityTime(projectGroup.conversations);
     const latestTeamTime = projectGroup.teams[0]?.updatedAt ?? 0;
     items.push({
       type: 'project',
@@ -156,7 +197,7 @@ export const groupConversationsByWorkspace = (
 
   allWorkspaceGroups.forEach((convList, workspace) => {
     const sortedConvs = [...convList].toSorted((a, b) => getActivityTime(b) - getActivityTime(a));
-    const latestConversationTime = getActivityTime(sortedConvs[0]);
+    const latestConversationTime = getLatestActivityTime(sortedConvs);
     const updateTime = getWorkspaceUpdateTime(workspace);
     const time = Math.max(updateTime, latestConversationTime);
     items.push({
@@ -207,7 +248,7 @@ export const buildGroupedHistory = (
   if (!t) {
     return {
       pinnedConversations: [],
-      unassignedProjects: projects,
+      projectGroups: projects.map((project) => buildProjectGroup(project, [], [])),
       unassignedTeams: teams,
       timelineSections: [],
     };
@@ -229,25 +270,19 @@ export const buildGroupedHistory = (
   const normalConversations = visibleConversations.filter(
     (conversation) => !isConversationPinned(conversation) && !isCronJobConversation(conversation)
   );
+  const { allProjectGroups, teamsByProject } = buildProjectConversationMaps(normalConversations, projects, teams);
 
-  const projectIdsWithConversations = new Set<string>();
-  normalConversations.forEach((conversation) => {
-    if (conversation.projectId) {
-      projectIdsWithConversations.add(conversation.projectId);
-    }
-  });
-  const projectIdsWithTeams = new Set(
-    teams.map((team) => team.projectId).filter((projectId): projectId is string => Boolean(projectId))
+  const projectGroups = projects.map((project) =>
+    buildProjectGroup(project, allProjectGroups.get(project.id) ?? [], teamsByProject.get(project.id) ?? [])
   );
-  const unassignedProjects = projects.filter(
-    (project) => !projectIdsWithConversations.has(project.id) && !projectIdsWithTeams.has(project.id)
-  );
+
   const unassignedTeams = teams.filter((team) => !team.projectId);
+  const nonProjectConversations = normalConversations.filter((conversation) => !conversation.projectId);
 
   return {
     pinnedConversations,
-    unassignedProjects,
+    projectGroups,
     unassignedTeams,
-    timelineSections: groupConversationsByWorkspace(normalConversations, projects, teams, t),
+    timelineSections: groupConversationsByWorkspace(nonProjectConversations, [], teams, t),
   };
 };

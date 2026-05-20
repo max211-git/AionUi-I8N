@@ -5,7 +5,9 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import type { TProject } from '@/common/adapter/ipcBridge';
 import type { TChatConversation } from '@/common/config/storage';
+import type { TTeam } from '@/common/types/teamTypes';
 import {
   buildGroupedHistory,
   getConversationPinnedAt,
@@ -36,6 +38,40 @@ vi.mock('@/renderer/pages/conversation/GroupedHistory/utils/sortOrderHelpers', (
 
 // Mock translation function used in tests
 const mockT = (key: string) => key;
+
+const createConversation = (overrides: Partial<TChatConversation> = {}): TChatConversation => ({
+  id: overrides.id ?? 'conversation-id',
+  title: overrides.title ?? 'Conversation',
+  createTime: overrides.createTime ?? 1000,
+  modifyTime: overrides.modifyTime ?? overrides.updatedAt ?? 1000,
+  createdAt: overrides.createdAt ?? 1000,
+  updatedAt: overrides.updatedAt ?? overrides.modifyTime ?? 1000,
+  extra: overrides.extra ?? {},
+  userMsgCount: overrides.userMsgCount ?? 0,
+  projectId: overrides.projectId,
+});
+
+const createProject = (overrides: Partial<TProject> = {}): TProject => ({
+  id: overrides.id ?? 'project-id',
+  name: overrides.name ?? 'Project',
+  rootPath: overrides.rootPath,
+  createdAt: overrides.createdAt ?? 1000,
+  updatedAt: overrides.updatedAt ?? 1000,
+});
+
+const createTeam = (overrides: Partial<TTeam> = {}): TTeam => ({
+  id: overrides.id ?? 'team-id',
+  userId: overrides.userId ?? 'user-id',
+  projectId: overrides.projectId,
+  name: overrides.name ?? 'Team',
+  workspace: overrides.workspace ?? '/tmp/team-workspace',
+  workspaceMode: overrides.workspaceMode ?? 'custom',
+  leaderAgentId: overrides.leaderAgentId ?? 'leader-id',
+  agents: overrides.agents ?? [],
+  sessionMode: overrides.sessionMode,
+  createdAt: overrides.createdAt ?? 1000,
+  updatedAt: overrides.updatedAt ?? 1000,
+});
 
 describe('isCronJobConversation', () => {
   it('returns true when extra.cronJobId exists', () => {
@@ -484,109 +520,92 @@ describe('buildGroupedHistory', () => {
     expect(result.pinnedConversations[1].id).toBe('conv-1');
   });
 
-  it('handles mixed pinned, cron job, and normal conversations', () => {
-    const conversations: TChatConversation[] = [
-      {
-        id: 'conv-1',
-        title: 'Pinned',
-        createdAt: 1000,
-        updatedAt: 1000,
-        extra: { pinned: true, pinnedAt: 2000 },
-        userMsgCount: 0,
-      },
-      {
-        id: 'conv-2',
-        title: 'Cron',
-        createdAt: 2000,
-        updatedAt: 2000,
-        extra: { cronJobId: 'job-123' },
-        userMsgCount: 0,
-      },
-      {
-        id: 'conv-3',
-        title: 'Normal',
-        createdAt: 3000,
-        updatedAt: 3000,
-        extra: {},
-        userMsgCount: 0,
-      },
-      {
-        id: 'conv-4',
-        title: 'Workspace',
-        createdAt: 4000,
-        updatedAt: 4000,
-        extra: { workspace: '/path/a', customWorkspace: true },
-        userMsgCount: 0,
-      },
-    ];
+  it('keeps project conversations out of recents while retaining projects in project groups', () => {
+    const project = createProject({ id: 'project-1', name: 'Project One' });
+    const projectConversation = createConversation({
+      id: 'conversation-project',
+      title: 'Project Chat',
+      modifyTime: 200,
+      projectId: project.id,
+      extra: { customWorkspace: false },
+    });
+    const nonProjectConversation = createConversation({
+      id: 'conversation-global',
+      title: 'Chat with no project',
+      modifyTime: 100,
+      extra: { customWorkspace: false },
+    });
 
-    const result = buildGroupedHistory(conversations, [], mockT);
+    const result = buildGroupedHistory([projectConversation, nonProjectConversation], [project], [], mockT);
 
-    expect(result.pinnedConversations).toHaveLength(1);
-    expect(result.pinnedConversations[0].id).toBe('conv-1');
-
-    // Normal section should have workspace group and normal conversation
-    expect(result.timelineSections[0].items).toHaveLength(2);
-    expect(result.timelineSections[0].items[0].type).toBe('workspace'); // conv-4 in workspace
-    expect(result.timelineSections[0].items[1].type).toBe('conversation'); // conv-3
+    expect(result.projectGroups).toHaveLength(1);
+    expect(result.projectGroups[0]?.project.id).toBe(project.id);
+    expect(result.projectGroups[0]?.chatConversations.map((conversation) => conversation.id)).toEqual([
+      projectConversation.id,
+    ]);
+    expect(result.timelineSections).toHaveLength(1);
+    expect(result.timelineSections[0]?.items[0]).toMatchObject({
+      type: 'conversation',
+      conversation: { id: nonProjectConversation.id },
+    });
   });
 
-  it('returns empty arrays when no conversations', () => {
-    const result = buildGroupedHistory([], [], mockT);
+  it('keeps empty projects visible in project groups', () => {
+    const emptyProject = createProject({ id: 'project-empty', name: 'Empty Project' });
 
-    expect(result.pinnedConversations).toEqual([]);
+    const result = buildGroupedHistory([], [emptyProject], [], mockT);
+
+    expect(result.projectGroups).toHaveLength(1);
+    expect(result.projectGroups[0]?.project.id).toBe(emptyProject.id);
+    expect(result.projectGroups[0]?.conversations).toEqual([]);
     expect(result.timelineSections).toEqual([]);
   });
 
-  it('handles all conversations being pinned', () => {
-    const conversations: TChatConversation[] = [
-      {
-        id: 'conv-1',
-        title: 'Pinned 1',
-        createdAt: 1000,
-        updatedAt: 1000,
-        extra: { pinned: true, pinnedAt: 1000 },
-        userMsgCount: 0,
-      },
-      {
-        id: 'conv-2',
-        title: 'Pinned 2',
-        createdAt: 2000,
-        updatedAt: 2000,
-        extra: { pinned: true, pinnedAt: 2000 },
-        userMsgCount: 0,
-      },
-    ];
+  it('supports projects that contain only teams without crashing', () => {
+    const project = createProject({ id: 'project-team-only', name: 'Team Project' });
+    const team = createTeam({ id: 'team-1', name: 'Team One', projectId: project.id, updatedAt: 123 });
 
-    const result = buildGroupedHistory(conversations, [], mockT);
+    const result = buildGroupedHistory([], [project], [team], mockT);
 
-    expect(result.pinnedConversations).toHaveLength(2);
+    expect(result.projectGroups).toHaveLength(1);
+    expect(result.projectGroups[0]?.project.id).toBe(project.id);
+    expect(result.projectGroups[0]?.teams.map((item) => item.id)).toEqual([team.id]);
     expect(result.timelineSections).toEqual([]);
   });
 
-  it('handles all conversations being cron jobs', () => {
-    const conversations: TChatConversation[] = [
-      {
-        id: 'conv-1',
-        title: 'Cron 1',
-        createdAt: 1000,
-        updatedAt: 1000,
-        extra: { cronJobId: 'job-1' },
-        userMsgCount: 0,
+  it('groups workspace chats only when customWorkspace is true', () => {
+    const workspaceConversation = createConversation({
+      id: 'conversation-workspace',
+      title: 'Workspace Conversation',
+      modifyTime: 200,
+      extra: {
+        workspace: '/tmp/workspace-a',
+        customWorkspace: true,
       },
-      {
-        id: 'conv-2',
-        title: 'Cron 2',
-        createdAt: 2000,
-        updatedAt: 2000,
-        extra: { cronJobId: 'job-2' },
-        userMsgCount: 0,
+    });
+    const normalConversation = createConversation({
+      id: 'conversation-normal',
+      title: 'Normal Conversation',
+      modifyTime: 100,
+      extra: {
+        workspace: '/tmp/workspace-a',
+        customWorkspace: false,
       },
-    ];
+    });
 
-    const result = buildGroupedHistory(conversations, [], mockT);
+    const sections = groupConversationsByWorkspace([workspaceConversation, normalConversation], [], [], mockT);
 
-    expect(result.pinnedConversations).toEqual([]);
-    expect(result.timelineSections).toEqual([]);
+    expect(sections).toHaveLength(1);
+    expect(sections[0]?.items).toHaveLength(2);
+    expect(
+      sections[0]?.items.some((item) => item.type === 'conversation' && item.conversation?.id === normalConversation.id)
+    ).toBe(true);
+    expect(
+      sections[0]?.items.some(
+        (item) =>
+          item.type === 'workspace' &&
+          item.workspaceGroup?.conversations.some((conversation) => conversation.id === workspaceConversation.id)
+      )
+    ).toBe(true);
   });
 });

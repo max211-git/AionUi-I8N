@@ -56,6 +56,12 @@
   transform-origin: left center;
 }
 
+.chat-history--collapsed .chat-history__item-name,
+.chat-history--collapsed .chat-history__item-editor {
+  opacity: 0;
+  transform: translateX(-8px);
+}
+
 .chat-history__item-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -94,10 +100,13 @@
   padding-bottom: 0 !important;
 }
 
-.chat-history--collapsed .chat-history__item-name,
-.chat-history--collapsed .chat-history__item-editor {
-  opacity: 0;
-  transform: translateX(-8px);
+.chat-history--collapsed .chat-history__item {
+  justify-content: center;
+}
+
+.chat-history--collapsed .chat-history__item > :first-child {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .settings-sider--collapsed .settings-sider__item-label {
