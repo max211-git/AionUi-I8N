@@ -41,7 +41,8 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { teams, mutate: refreshTeams, removeTeam } = useTeamList();
-  const teamBadgeCounts = useSiderTeamBadges(teams);
+  const unassignedTeams = useMemo(() => teams.filter((team) => !team.projectId), [teams]);
+  const teamBadgeCounts = useSiderTeamBadges(unassignedTeams);
   const { mutate: globalMutate } = useSWRConfig();
 
   const [createTeamVisible, setCreateTeamVisible] = useState(false);
@@ -87,10 +88,10 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
   }, [globalMutate, refreshTeams, renameId, renameName, t]);
 
   const sortedTeams = useMemo(() => {
-    const pinned = teams.filter((team) => pinnedIds.includes(team.id));
-    const unpinned = teams.filter((team) => !pinnedIds.includes(team.id));
+    const pinned = unassignedTeams.filter((team) => pinnedIds.includes(team.id));
+    const unpinned = unassignedTeams.filter((team) => !pinnedIds.includes(team.id));
     return [...pinned, ...unpinned];
-  }, [teams, pinnedIds]);
+  }, [unassignedTeams, pinnedIds]);
 
   const handleTeamClick = useCallback(
     (teamId: string) => {

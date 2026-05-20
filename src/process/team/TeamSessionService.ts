@@ -279,6 +279,7 @@ export class TeamSessionService {
   private async buildConversationParams(params: {
     teamId: string;
     teamName: string;
+    projectId?: string;
     workspace: string;
     agent: Omit<TeamAgent, 'slotId'> | TeamAgent;
     agents: TeamAgent[];
@@ -291,7 +292,8 @@ export class TeamSessionService {
     model: TProviderWithModel;
     extra: Record<string, unknown>;
   }> {
-    const { teamId, teamName, workspace, agent, agents, inheritedSessionMode, isInheritedWorkspace } = params;
+    const { teamId, teamName, projectId, workspace, agent, agents, inheritedSessionMode, isInheritedWorkspace } =
+      params;
     const backend = this.resolveBackend(agent.agentType, agents) as AgentBackend;
     // remote agents use customAgentId as remoteAgentId, not as a preset indicator
     const isPreset = Boolean(agent.customAgentId) && backend !== 'remote';
@@ -328,6 +330,7 @@ export class TeamSessionService {
       presetResources,
       sessionMode: inheritedSessionMode,
       currentModelId: preferredModelId,
+      projectId,
       extra: {
         teamId,
       },
@@ -474,6 +477,7 @@ export class TeamSessionService {
 
   async createTeam(params: {
     userId: string;
+    projectId?: string;
     name: string;
     workspace: string;
     workspaceMode: TTeam['workspaceMode'];
@@ -498,12 +502,15 @@ export class TeamSessionService {
             // An empty string would overwrite the conversation's existing workspace
             // (e.g. the temp dir created during solo-chat init), causing mkdir('') failures.
             const extraUpdate: Record<string, unknown> = { teamId };
+            if (params.projectId) {
+              extraUpdate.projectId = params.projectId;
+            }
             if (workspace) {
               extraUpdate.workspace = workspace;
             }
             await this.conversationService.updateConversation(
               agent.conversationId,
-              { extra: extraUpdate } as any,
+              { projectId: params.projectId, extra: extraUpdate },
               true
             );
             return { ...agent, slotId, conversationId: agent.conversationId };
@@ -514,6 +521,7 @@ export class TeamSessionService {
         const conversationParams = await this.buildConversationParams({
           teamId,
           teamName: params.name,
+          projectId: params.projectId,
           workspace,
           agent,
           agents: params.agents,
@@ -523,7 +531,16 @@ export class TeamSessionService {
         const conversation = await this.conversationService.createConversation(conversationParams);
         // Ensure teamId is in extra regardless of which factory function was used
         // (some factories like createCodexAgent/createGeminiAgent drop unknown extra fields)
-        await this.conversationService.updateConversation(conversation.id, { extra: { teamId } } as any, true);
+        const newConversationExtra: Record<string, unknown> = { teamId };
+        if (workspace) {
+          newConversationExtra.workspace = workspace;
+          newConversationExtra.customWorkspace = true;
+        }
+        await this.conversationService.updateConversation(
+          conversation.id,
+          { projectId: params.projectId, extra: newConversationExtra },
+          true
+        );
         return { ...agent, slotId, conversationId: conversation.id };
       })
     );
@@ -545,6 +562,7 @@ export class TeamSessionService {
     const team: TTeam = {
       id: teamId,
       userId: params.userId,
+      projectId: params.projectId,
       name: params.name,
       workspace,
       workspaceMode: params.workspaceMode,
@@ -564,8 +582,12 @@ export class TeamSessionService {
     return this.repairTeamAgentsIfMissing(team);
   }
 
-  async listTeams(userId: string): Promise<TTeam[]> {
-    return this.repo.findAll(userId);
+  async listTeams(userId: string, projectId?: string): Promise<TTeam[]> {
+    const teams = await this.repo.findAll(userId);
+    if (!projectId) {
+      return teams;
+    }
+    return teams.filter((team) => team.projectId === projectId);
   }
 
   async deleteTeam(id: string): Promise<void> {
@@ -653,6 +675,7 @@ export class TeamSessionService {
     const conversationParams = await this.buildConversationParams({
       teamId,
       teamName: team.name,
+      projectId: team.projectId,
       workspace,
       agent,
       agents: team.agents,
@@ -661,7 +684,11 @@ export class TeamSessionService {
     });
     const conversation = await this.conversationService.createConversation(conversationParams);
     // Ensure teamId is in extra regardless of which factory function was used
-    await this.conversationService.updateConversation(conversation.id, { extra: { teamId } } as any, true);
+    await this.conversationService.updateConversation(
+      conversation.id,
+      { projectId: team.projectId, extra: { teamId, workspace, customWorkspace: Boolean(workspace) } },
+      true
+    );
 
     const newAgent: TeamAgent = {
       ...agent,
@@ -735,6 +762,22 @@ export class TeamSessionService {
         true
       );
     }
+  }
+
+  async updateProject(teamId: string, projectId?: string): Promise<void> {
+    const team = await this.repo.findById(teamId);
+    if (!team) throw new Error(`Team "${teamId}" not found`);
+
+    const now = Date.now();
+    await this.repo.update(teamId, { projectId, updatedAt: now });
+
+    await Promise.all(
+      team.agents
+        .filter((agent): agent is typeof agent & { conversationId: string } => Boolean(agent.conversationId))
+        .map((agent) =>
+          this.conversationService.updateConversation(agent.conversationId, { projectId, modifyTime: now }, true)
+        )
+    );
   }
 
   async removeAgent(teamId: string, slotId: string): Promise<void> {

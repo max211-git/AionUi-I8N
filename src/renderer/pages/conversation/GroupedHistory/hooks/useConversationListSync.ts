@@ -7,6 +7,7 @@
 import { ipcBridge } from '@/common';
 import type { TProject } from '@/common/adapter/ipcBridge';
 import type { TChatConversation } from '@/common/config/storage';
+import type { TTeam } from '@/common/types/teamTypes';
 import { addEventListener } from '@/renderer/utils/emitter';
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 
@@ -54,6 +55,7 @@ const isTerminalTurnState = (state: string): boolean => {
 type ConversationListSyncSnapshot = {
   conversations: TChatConversation[];
   projects: TProject[];
+  teams: TTeam[];
   generatingConversationIds: Set<string>;
   completionUnreadConversationIds: Set<string>;
 };
@@ -63,6 +65,7 @@ const listeners = new Set<() => void>();
 let isStoreInitialized = false;
 let conversationsState: TChatConversation[] = [];
 let projectsState: TProject[] = [];
+let teamsState: TTeam[] = [];
 let generatingConversationIdsState = new Set<string>();
 let completionUnreadConversationIdsState = new Set<string>();
 let conversationIdsState = new Set<string>();
@@ -70,6 +73,7 @@ let activeConversationIdState: string | null = null;
 let snapshotState: ConversationListSyncSnapshot = {
   conversations: conversationsState,
   projects: projectsState,
+  teams: teamsState,
   generatingConversationIds: generatingConversationIdsState,
   completionUnreadConversationIds: completionUnreadConversationIdsState,
 };
@@ -78,6 +82,7 @@ const emitStoreChange = () => {
   snapshotState = {
     conversations: conversationsState,
     projects: projectsState,
+    teams: teamsState,
     generatingConversationIds: generatingConversationIdsState,
     completionUnreadConversationIds: completionUnreadConversationIdsState,
   };
@@ -97,9 +102,11 @@ const refreshConversations = () => {
   void Promise.all([
     ipcBridge.database.getUserConversations.invoke({ page: 0, pageSize: 10000 }),
     ipcBridge.project.list.invoke(),
+    ipcBridge.team.list.invoke({ userId: 'system_default_user' }),
   ])
-    .then(([data, projects]) => {
+    .then(([data, projects, teams]) => {
       projectsState = projects;
+      teamsState = teams;
       if (data && Array.isArray(data)) {
         const filteredData = data.filter((conv) => {
           const extra = conv.extra as { isHealthCheck?: boolean; teamId?: string } | undefined;
@@ -122,6 +129,7 @@ const refreshConversations = () => {
       console.error('[WorkspaceGroupedHistory] Failed to load conversations:', error);
       conversationsState = [];
       projectsState = [];
+      teamsState = [];
       conversationIdsState = new Set();
       emitStoreChange();
     });
@@ -190,6 +198,9 @@ const initializeConversationListSyncStore = () => {
   ipcBridge.project.listChanged.on(() => {
     refreshConversations();
   });
+  ipcBridge.team.listChanged.on(() => {
+    refreshConversations();
+  });
   ipcBridge.conversation.responseStream.on((message) => {
     const conversationId = message.conversation_id;
     if (!conversationId) {
@@ -227,11 +238,12 @@ export const useConversationListSync = () => {
     initializeConversationListSyncStore();
   }, []);
 
-  const { conversations, projects, generatingConversationIds, completionUnreadConversationIds } = useSyncExternalStore(
-    subscribeConversationListSync,
-    getConversationListSyncSnapshot,
-    getConversationListSyncSnapshot
-  );
+  const { conversations, projects, teams, generatingConversationIds, completionUnreadConversationIds } =
+    useSyncExternalStore(
+      subscribeConversationListSync,
+      getConversationListSyncSnapshot,
+      getConversationListSyncSnapshot
+    );
 
   const clearCompletionUnread = useCallback((conversationId: string) => {
     clearCompletionUnreadState(conversationId);
@@ -258,6 +270,7 @@ export const useConversationListSync = () => {
   return {
     conversations,
     projects,
+    teams,
     isConversationGenerating,
     hasCompletionUnread,
     clearCompletionUnread,

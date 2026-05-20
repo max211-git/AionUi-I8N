@@ -6,6 +6,7 @@
 
 import type { TProject } from '@/common/adapter/ipcBridge';
 import type { TChatConversation } from '@/common/config/storage';
+import type { TTeam } from '@/common/types/teamTypes';
 import { getActivityTime } from '@/renderer/utils/chat/timeline';
 import { getWorkspaceDisplayName } from '@/renderer/utils/workspace/workspace';
 import { getWorkspaceUpdateTime } from '@/renderer/utils/workspace/workspaceHistory';
@@ -31,7 +32,11 @@ export const getConversationPinnedAt = (conversation: TChatConversation): number
   return 0;
 };
 
-const buildProjectGroup = (project: TProject, conversations: TChatConversation[]): ProjectGroup => {
+const buildProjectGroup = (
+  project: TProject,
+  conversations: TChatConversation[],
+  teams: TTeam[] = []
+): ProjectGroup => {
   const sortedConvs = [...conversations].toSorted((a, b) => getActivityTime(b) - getActivityTime(a));
   const workspaceGroupsByPath = new Map<string, TChatConversation[]>();
   const chatConversations: TChatConversation[] = [];
@@ -65,15 +70,32 @@ const buildProjectGroup = (project: TProject, conversations: TChatConversation[]
     conversations: sortedConvs,
     chatConversations,
     workspaceGroups,
+    teams: [...teams].toSorted((a, b) => b.updatedAt - a.updatedAt),
   };
 };
 
 export const groupConversationsByWorkspace = (
   conversations: TChatConversation[],
   projects: TProject[],
-  t: (key: string) => string
+  teamsOrT: TTeam[] | ((key: string) => string),
+  maybeT?: (key: string) => string
 ): TimelineSection[] => {
+  const teams = Array.isArray(teamsOrT) ? teamsOrT : [];
+  const t = Array.isArray(teamsOrT) ? maybeT : teamsOrT;
+  if (!t) {
+    return [];
+  }
   const projectMap = new Map(projects.map((project) => [project.id, project]));
+  const teamsByProject = new Map<string, TTeam[]>();
+  teams.forEach((team) => {
+    if (!team.projectId || !projectMap.has(team.projectId)) {
+      return;
+    }
+    const current = teamsByProject.get(team.projectId) ?? [];
+    current.push(team);
+    teamsByProject.set(team.projectId, current);
+  });
+  const allProjectIds = new Set<string>(teamsByProject.keys());
   const allProjectGroups = new Map<string, TChatConversation[]>();
   const allWorkspaceGroups = new Map<string, TChatConversation[]>();
   const withoutWorkspaceConvs: TChatConversation[] = [];
@@ -82,6 +104,7 @@ export const groupConversationsByWorkspace = (
     if (conv.projectId) {
       const project = projectMap.get(conv.projectId);
       if (project) {
+        allProjectIds.add(project.id);
         if (!allProjectGroups.has(project.id)) {
           allProjectGroups.set(project.id, []);
         }
@@ -105,16 +128,21 @@ export const groupConversationsByWorkspace = (
 
   const items: TimelineItem[] = [];
 
-  allProjectGroups.forEach((convList, projectId) => {
+  allProjectIds.forEach((projectId) => {
     const project = projectMap.get(projectId);
     if (!project) {
       return;
     }
-    const projectGroup = buildProjectGroup(project, convList);
+    const projectGroup = buildProjectGroup(
+      project,
+      allProjectGroups.get(projectId) ?? [],
+      teamsByProject.get(projectId) ?? []
+    );
     const latestConversationTime = getActivityTime(projectGroup.conversations[0]);
+    const latestTeamTime = projectGroup.teams[0]?.updatedAt ?? 0;
     items.push({
       type: 'project',
-      time: latestConversationTime,
+      time: Math.max(latestConversationTime, latestTeamTime, project.updatedAt),
       projectGroup,
     });
   });
@@ -164,8 +192,19 @@ const isTeamConversation = (conversation: TChatConversation): boolean => {
 export const buildGroupedHistory = (
   conversations: TChatConversation[],
   projects: TProject[],
-  t: (key: string) => string
+  teamsOrT: TTeam[] | ((key: string) => string),
+  maybeT?: (key: string) => string
 ): GroupedHistoryResult => {
+  const teams = Array.isArray(teamsOrT) ? teamsOrT : [];
+  const t = Array.isArray(teamsOrT) ? maybeT : teamsOrT;
+  if (!t) {
+    return {
+      pinnedConversations: [],
+      unassignedProjects: projects,
+      unassignedTeams: teams,
+      timelineSections: [],
+    };
+  }
   // Filter out team-owned conversations; they are only visible via the Teams panel
   const visibleConversations = conversations.filter((conv) => !isTeamConversation(conv));
 
@@ -184,20 +223,24 @@ export const buildGroupedHistory = (
     (conversation) => !isConversationPinned(conversation) && !isCronJobConversation(conversation)
   );
 
-  const projectConversationMap = new Map<string, TChatConversation[]>();
+  const projectIdsWithConversations = new Set<string>();
   normalConversations.forEach((conversation) => {
-    if (!conversation.projectId) {
-      return;
+    if (conversation.projectId) {
+      projectIdsWithConversations.add(conversation.projectId);
     }
-    const current = projectConversationMap.get(conversation.projectId) ?? [];
-    current.push(conversation);
-    projectConversationMap.set(conversation.projectId, current);
   });
-  const unassignedProjects = projects.filter((project) => !projectConversationMap.has(project.id));
+  const projectIdsWithTeams = new Set(
+    teams.map((team) => team.projectId).filter((projectId): projectId is string => Boolean(projectId))
+  );
+  const unassignedProjects = projects.filter(
+    (project) => !projectIdsWithConversations.has(project.id) && !projectIdsWithTeams.has(project.id)
+  );
+  const unassignedTeams = teams.filter((team) => !team.projectId);
 
   return {
     pinnedConversations,
     unassignedProjects,
-    timelineSections: groupConversationsByWorkspace(normalConversations, projects, t),
+    unassignedTeams,
+    timelineSections: groupConversationsByWorkspace(normalConversations, projects, teams, t),
   };
 };

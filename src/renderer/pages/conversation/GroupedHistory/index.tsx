@@ -7,6 +7,7 @@
 import { ipcBridge } from '@/common';
 import type { TProject } from '@/common/adapter/ipcBridge';
 import type { TChatConversation } from '@/common/config/storage';
+import type { TTeam } from '@/common/types/teamTypes';
 import DirectorySelectionModal from '@/renderer/components/settings/DirectorySelectionModal';
 import { CronJobIndicator, useCronJobsMap } from '@/renderer/pages/cron';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
@@ -311,8 +312,27 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     return <ConversationRow key={conversation.id} {...rowProps} />;
   };
 
+  const renderTeam = (team: TTeam) => (
+    <Button
+      key={team.id}
+      type='text'
+      className='!h-30px !w-full !justify-start !px-2 !text-left hover:!bg-fill-3'
+      onClick={() => {
+        void Promise.resolve(navigate(`/team/${team.id}`));
+        onSessionClick?.();
+      }}
+    >
+      <span className='ml-34px flex min-w-0 w-full items-center gap-8px'>
+        <span className='flex-center h-20px w-20px shrink-0 rounded-6px bg-[rgba(var(--success-6),0.12)] text-[rgb(var(--success-6))]'>
+          <Peoples theme='outline' size='13' />
+        </span>
+        <span className='min-w-0 flex-1 truncate text-13px text-t-primary'>{team.name}</span>
+      </span>
+    </Button>
+  );
+
   const renderProjectGroup = (projectGroup: ProjectGroup) => {
-    const { project, conversations: projectConversations, chatConversations, workspaceGroups } = projectGroup;
+    const { project, conversations: projectConversations, chatConversations, workspaceGroups, teams } = projectGroup;
     const sectionKey = `project:${project.id}`;
     const isCollapsed = collapsedSections.has(sectionKey);
     const chatSectionKey = `${sectionKey}:chats`;
@@ -458,10 +478,15 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 teamsSectionKey,
                 <Peoples theme='outline' size='14' />,
                 t('conversation.history.projectTeamsSection'),
-                0
+                teams.length
               )}
-              {!collapsedSections.has(teamsSectionKey) &&
-                renderPlaceholder(t('conversation.history.projectTeamsPlaceholder'))}
+              {!collapsedSections.has(teamsSectionKey) && (
+                <div className='flex flex-col gap-1px'>
+                  {teams.length > 0
+                    ? teams.map((team) => renderTeam(team))
+                    : renderPlaceholder(t('conversation.history.projectTeamsPlaceholder'))}
+                </div>
+              )}
 
               {renderProjectSubheader(
                 assetsSectionKey,
@@ -738,7 +763,13 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
             )}
             {!collapsedSections.has('projects') &&
               unassignedProjects.map((project) =>
-                renderProjectGroup({ project, conversations: [], chatConversations: [], workspaceGroups: [] })
+                renderProjectGroup({
+                  project,
+                  conversations: [],
+                  chatConversations: [],
+                  workspaceGroups: [],
+                  teams: [],
+                })
               )}
           </div>
         )}

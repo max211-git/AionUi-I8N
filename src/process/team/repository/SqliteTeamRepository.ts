@@ -11,6 +11,7 @@ import type { ITeamRepository } from './ITeamRepository';
 type TeamRow = {
   id: string;
   user_id: string;
+  project_id: string | null;
   name: string;
   workspace: string;
   workspace_mode: string;
@@ -56,6 +57,7 @@ function rowToTeam(row: TeamRow): TTeam {
   return {
     id: row.id,
     userId: row.user_id,
+    projectId: row.project_id ?? undefined,
     name: row.name,
     workspace: row.workspace,
     workspaceMode: row.workspace_mode as TTeam['workspaceMode'],
@@ -126,11 +128,12 @@ export class SqliteTeamRepository implements ITeamRepository {
   async create(team: TTeam): Promise<TTeam> {
     const db = await this.getDb();
     db.prepare(
-      `INSERT INTO teams (id, user_id, name, workspace, workspace_mode, lead_agent_id, agents, session_mode, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO teams (id, user_id, project_id, name, workspace, workspace_mode, lead_agent_id, agents, session_mode, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       team.id,
       team.userId,
+      team.projectId ?? null,
       team.name,
       team.workspace,
       team.workspaceMode,
@@ -162,10 +165,11 @@ export class SqliteTeamRepository implements ITeamRepository {
     const db = await this.getDb();
     db.prepare(
       `UPDATE teams
-       SET name = ?, workspace = ?, workspace_mode = ?, lead_agent_id = ?, agents = ?, session_mode = ?, updated_at = ?
+       SET name = ?, project_id = ?, workspace = ?, workspace_mode = ?, lead_agent_id = ?, agents = ?, session_mode = ?, updated_at = ?
        WHERE id = ?`
     ).run(
       merged.name,
+      merged.projectId ?? null,
       merged.workspace,
       merged.workspaceMode,
       merged.leaderAgentId,

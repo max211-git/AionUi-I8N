@@ -263,6 +263,7 @@ export type TChatConversation =
         sessionMode?: string;
         /** Explicit marker for temporary health-check conversations */
         isHealthCheck?: boolean;
+        teamId?: string;
         /** Cron job ID that spawned this conversation */
         cronJobId?: string;
       }
@@ -474,6 +475,7 @@ export type TChatConversation =
         isHealthCheck?: boolean;
         /** Last token usage stats */
         lastTokenUsage?: TokenUsageData;
+        teamId?: string;
         /** Cron job ID that spawned this conversation */
         cronJobId?: string;
       }

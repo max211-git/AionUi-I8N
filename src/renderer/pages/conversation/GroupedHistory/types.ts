@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { TTeam } from '@/common/types/teamTypes';
 import type { TProject } from '@/common/adapter/ipcBridge';
 import type { TChatConversation } from '@/common/config/storage';
 
@@ -18,6 +19,7 @@ export type ProjectGroup = {
   conversations: TChatConversation[];
   chatConversations: TChatConversation[];
   workspaceGroups: WorkspaceGroup[];
+  teams: TTeam[];
 };
 
 export type TimelineItem = {
@@ -36,6 +38,7 @@ export type TimelineSection = {
 export type GroupedHistoryResult = {
   pinnedConversations: TChatConversation[];
   unassignedProjects: TProject[];
+  unassignedTeams: TTeam[];
   timelineSections: TimelineSection[];
 };
 

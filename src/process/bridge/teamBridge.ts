@@ -39,8 +39,8 @@ export function initTeamBridge(teamSessionService: TeamSessionService): void {
   );
 
   ipcBridge.team.list.provider(
-    safeProvider(async ({ userId }) => {
-      return teamSessionService.listTeams(userId);
+    safeProvider(async ({ userId, projectId }) => {
+      return teamSessionService.listTeams(userId, projectId);
     })
   );
 
@@ -89,6 +89,12 @@ export function initTeamBridge(teamSessionService: TeamSessionService): void {
   ipcBridge.team.updateWorkspace.provider(
     safeProvider(async ({ teamId, workspace }) => {
       await teamSessionService.updateWorkspace(teamId, workspace);
+    })
+  );
+
+  ipcBridge.team.updateProject.provider(
+    safeProvider(async ({ teamId, projectId }) => {
+      await teamSessionService.updateProject(teamId, projectId);
     })
   );
 

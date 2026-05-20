@@ -68,6 +68,7 @@ export type TeamAgent = {
 export type TTeam = {
   id: string;
   userId: string;
+  projectId?: string;
   name: string;
   workspace: string;
   workspaceMode: WorkspaceMode;

@@ -1247,6 +1247,23 @@ const migration_v27: IMigration = {
   },
 };
 
+const migration_v28: IMigration = {
+  version: 28,
+  name: 'Add team project containment',
+  up: (db) => {
+    const teamColumns = new Set((db.pragma('table_info(teams)') as Array<{ name: string }>).map((c) => c.name));
+    if (!teamColumns.has('project_id')) {
+      db.exec('ALTER TABLE teams ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL');
+    }
+    db.exec('CREATE INDEX IF NOT EXISTS idx_teams_project_id ON teams(project_id)');
+    console.log('[Migration v28] Added team project_id column');
+  },
+  down: (db) => {
+    db.exec('DROP INDEX IF EXISTS idx_teams_project_id');
+    console.warn('[Migration v28] Rollback skipped: project_id column remains on teams.');
+  },
+};
+
 /**
  * All migrations in order
  */
@@ -1256,7 +1273,7 @@ export const ALL_MIGRATIONS: IMigration[] = [
   migration_v7, migration_v8, migration_v9, migration_v10, migration_v11, migration_v12,
   migration_v13, migration_v14, migration_v15, migration_v16, migration_v17, migration_v18,
   migration_v19, migration_v20, migration_v21, migration_v22, migration_v23, migration_v24,
-  migration_v25, migration_v26, migration_v27,
+  migration_v25, migration_v26, migration_v27, migration_v28,
 ];
 
 /**

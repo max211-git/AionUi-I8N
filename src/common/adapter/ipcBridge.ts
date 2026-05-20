@@ -1288,6 +1288,7 @@ export const hub = {
 // Team Mode API
 export type ICreateTeamParams = {
   userId: string;
+  projectId?: string;
   name: string;
   workspace: string;
   workspaceMode: 'shared' | 'isolated';
@@ -1301,7 +1302,9 @@ export type IAddTeamAgentParams = {
 
 export const team = {
   create: bridge.buildProvider<import('@process/team/types').TTeam, ICreateTeamParams>('team.create'),
-  list: bridge.buildProvider<import('@process/team/types').TTeam[], { userId: string }>('team.list'),
+  list: bridge.buildProvider<import('@process/team/types').TTeam[], { userId: string; projectId?: string }>(
+    'team.list'
+  ),
   get: bridge.buildProvider<import('@process/team/types').TTeam | null, { id: string }>('team.get'),
   remove: bridge.buildProvider<void, { id: string }>('team.remove'),
   addAgent: bridge.buildProvider<import('@process/team/types').TeamAgent, IAddTeamAgentParams>('team.add-agent'),
@@ -1316,6 +1319,7 @@ export const team = {
   renameTeam: bridge.buildProvider<void, { id: string; name: string }>('team.rename'),
   setSessionMode: bridge.buildProvider<void, { teamId: string; sessionMode: string }>('team.set-session-mode'),
   updateWorkspace: bridge.buildProvider<void, { teamId: string; workspace: string }>('team.update-workspace'),
+  updateProject: bridge.buildProvider<void, { teamId: string; projectId?: string }>('team.update-project'),
   agentStatusChanged: bridge.buildEmitter<import('@process/team/types').ITeamAgentStatusEvent>('team.agent.status'),
   agentSpawned: bridge.buildEmitter<import('@/common/types/teamTypes').ITeamAgentSpawnedEvent>('team.agent.spawned'),
   agentRemoved: bridge.buildEmitter<import('@/common/types/teamTypes').ITeamAgentRemovedEvent>('team.agent.removed'),
