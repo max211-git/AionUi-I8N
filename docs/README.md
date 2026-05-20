@@ -14,6 +14,8 @@ Documentation is organized by reader intent, not by document type.
 ## Quick pointers
 
 - New to the project? Start with [`architecture/overview.md`](architecture/overview.md).
+- Using Projects in the app? See [`guides/projects.md`](guides/projects.md).
+- Looking for the current project containment rules? See [`architecture/project-containment-semantics.md`](architecture/project-containment-semantics.md).
 - Setting up a dev environment? See [`contributing/development.md`](contributing/development.md).
 - Writing code? The entry point for code-style, linting, formatting, and commit rules is [`AGENTS.md`](../AGENTS.md) at the repo root.
 - Deploying a server? [`guides/deploy-server.md`](guides/deploy-server.md).
