@@ -7,7 +7,7 @@
 import { DeleteOne, EditOne, Peoples, Plus, Pushpin } from '@icon-park/react';
 import { Input, Message, Modal, Select, Tooltip } from '@arco-design/web-react';
 import classNames from 'classnames';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useSWRConfig } from 'swr';
@@ -16,7 +16,6 @@ import { cleanupSiderTooltips } from '@renderer/utils/ui/siderTooltip';
 import { blurActiveElement } from '@renderer/utils/ui/focus';
 import { useTeamList } from '@renderer/pages/team/hooks/useTeamList';
 import { useSiderTeamBadges } from '@renderer/pages/team/hooks/useSiderTeamBadges';
-import TeamCreateModal from '@renderer/pages/team/components/TeamCreateModal';
 import { ipcBridge } from '@/common';
 import type { TProject } from '@/common/adapter/ipcBridge';
 import type { TTeam } from '@/common/types/teamTypes';
@@ -24,6 +23,8 @@ import SiderItem from './SiderItem';
 import type { SiderMenuItem } from './SiderItem';
 
 const TEAM_PINNED_KEY = 'team-pinned-ids';
+
+const TeamCreateModal = React.lazy(() => import('@renderer/pages/team/components/TeamCreateModal'));
 
 type SiderTooltipProps = React.ComponentProps<typeof Tooltip>;
 
@@ -50,8 +51,11 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
   const [createTeamVisible, setCreateTeamVisible] = useState(false);
 
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') {
+      return [];
+    }
     try {
-      return JSON.parse(localStorage.getItem(TEAM_PINNED_KEY) ?? '[]') as string[];
+      return JSON.parse(window.localStorage.getItem(TEAM_PINNED_KEY) ?? '[]') as string[];
     } catch {
       return [];
     }
@@ -276,14 +280,16 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
             })}
         </div>
       )}
-      <TeamCreateModal
-        visible={createTeamVisible}
-        onClose={() => setCreateTeamVisible(false)}
-        onCreated={(team) => {
-          void refreshTeams();
-          Promise.resolve(navigate(`/team/${team.id}`)).catch(console.error);
-        }}
-      />
+      <Suspense fallback={null}>
+        <TeamCreateModal
+          visible={createTeamVisible}
+          onClose={() => setCreateTeamVisible(false)}
+          onCreated={(team) => {
+            void refreshTeams();
+            Promise.resolve(navigate(`/team/${team.id}`)).catch(console.error);
+          }}
+        />
+      </Suspense>
       <Modal
         title={t('team.sider.renameTitle')}
         visible={renameVisible}
@@ -337,13 +343,11 @@ const TeamSiderSection: React.FC<TeamSiderSectionProps> = ({
           value={selectedProjectId}
           onChange={(value) => setSelectedProjectId(value || undefined)}
           allowClear
-        >
-          {projects.map((project) => (
-            <Select.Option key={project.id} value={project.id}>
-              {project.name}
-            </Select.Option>
-          ))}
-        </Select>
+          options={projects.map((project) => ({
+            label: project.name,
+            value: project.id,
+          }))}
+        />
       </Modal>
     </>
   );

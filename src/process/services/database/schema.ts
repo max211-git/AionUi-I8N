@@ -56,7 +56,6 @@ export function initSchema(db: ISqliteDriver): void {
   db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_type ON conversations(type)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_project_id ON conversations(project_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_conversations_user_updated ON conversations(user_id, updated_at DESC)');
 
   db.exec(`CREATE TABLE IF NOT EXISTS projects (
@@ -104,7 +103,6 @@ export function initSchema(db: ISqliteDriver): void {
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`);
   db.exec('CREATE INDEX IF NOT EXISTS idx_teams_user_id ON teams(user_id)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_teams_project_id ON teams(project_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_teams_updated_at ON teams(updated_at)');
 
   // Mailbox table (团队消息邮箱)
