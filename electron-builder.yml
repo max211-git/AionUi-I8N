@@ -1,6 +1,7 @@
 appId: com.aionui.app
-productName: AionUi
-executableName: AionUi
+appId: com.aionui.plus
+productName: AionUI+
+executableName: AionUI+
 copyright: Copyright © 2024 AionUi
 
 protocols:

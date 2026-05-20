@@ -8,9 +8,13 @@ let _services: IPlatformServices | null = null;
  * Resolve the dev-mode app name for environment isolation.
  * Centralised so that every call-site stays in sync.
  */
+export const APP_NAME = 'AionUI+';
+export const LEGACY_DEV_APP_NAME = 'AionUi-Dev';
+export const LEGACY_DEV_APP_NAME_MULTI_INSTANCE = 'AionUi-Dev-2';
+
 export function getDevAppName(): string {
   const isMultiInstance = process.env.AIONUI_MULTI_INSTANCE === '1';
-  return isMultiInstance ? 'AionUi-Dev-2' : 'AionUi-Dev';
+  return isMultiInstance ? LEGACY_DEV_APP_NAME_MULTI_INSTANCE : LEGACY_DEV_APP_NAME;
 }
 
 export function registerPlatformServices(services: IPlatformServices): void {
@@ -41,7 +45,7 @@ export function getPlatformServices(): IPlatformServices {
         // must apply the dev name here as a safety net.
         if (!app.isPackaged) {
           const devAppName = getDevAppName();
-          app.setName(devAppName);
+          app.setName(APP_NAME);
           app.setPath('userData', path.join(path.dirname(app.getPath('userData')), devAppName));
         }
         // Typed as IPlatformPaths so tsc enforces completeness: any new method

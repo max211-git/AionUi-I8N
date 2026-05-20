@@ -20,6 +20,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
 import { initMainAdapterWithWindow } from './common/adapter/main';
+import { APP_NAME } from './common/platform';
 import { ipcBridge } from './common';
 import { AION_ASSET_PROTOCOL } from '@process/extensions';
 import { initializeProcess } from './process';
@@ -390,6 +391,8 @@ const createWindow = ({ showOnReady = true }: { showOnReady?: boolean } = {}): v
 };
 
 const handleAppReady = async (): Promise<void> => {
+  app.setName(APP_NAME);
+  app.setAboutPanelOptions({ applicationName: APP_NAME });
   const t0 = performance.now();
   const mark = (label: string) => console.log(`[AionUi:ready] ${label} +${Math.round(performance.now() - t0)}ms`);
   mark('start');
