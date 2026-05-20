@@ -26,11 +26,12 @@ const { Option, OptGroup } = AionSelect;
 
 type Props = {
   visible: boolean;
+  projectId?: string;
   onClose: () => void;
   onCreated: (team: TTeam) => void;
 };
 
-const TeamCreateModal: React.FC<Props> = ({ visible, onClose, onCreated }) => {
+const TeamCreateModal: React.FC<Props> = ({ visible, projectId, onClose, onCreated }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { cliAgents, presetAssistants } = useConversationAgents();
@@ -108,6 +109,7 @@ const TeamCreateModal: React.FC<Props> = ({ visible, onClose, onCreated }) => {
 
       const team = await ipcBridge.team.create.invoke({
         userId,
+        projectId,
         name,
         workspace,
         workspaceMode: 'shared',

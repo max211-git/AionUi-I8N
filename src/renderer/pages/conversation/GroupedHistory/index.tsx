@@ -9,6 +9,7 @@ import type { TProject } from '@/common/adapter/ipcBridge';
 import type { TChatConversation } from '@/common/config/storage';
 import type { TTeam } from '@/common/types/teamTypes';
 import DirectorySelectionModal from '@/renderer/components/settings/DirectorySelectionModal';
+import TeamCreateModal from '@/renderer/pages/team/components/TeamCreateModal';
 import { CronJobIndicator, useCronJobsMap } from '@/renderer/pages/cron';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -47,6 +48,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   const [projectName, setProjectName] = useState('');
   const [projectRootPath, setProjectRootPath] = useState('');
   const [workspacePickerProject, setWorkspacePickerProject] = useState<TProject | null>(null);
+  const [teamCreateProject, setTeamCreateProject] = useState<TProject | null>(null);
   const [projectSaving, setProjectSaving] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set());
   const toggleSection = useCallback((key: string) => {
@@ -393,6 +395,10 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                         setWorkspacePickerProject(project);
                         return;
                       }
+                      if (key === 'new-team') {
+                        setTeamCreateProject(project);
+                        return;
+                      }
                       if (key === 'edit') {
                         handleStartEditProject(project);
                         return;
@@ -406,6 +412,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                     <Menu.Item key='new-workspace-chat'>
                       {t('conversation.history.newWorkspaceChatInProject')}
                     </Menu.Item>
+                    <Menu.Item key='new-team'>{t('conversation.history.newTeamInProject')}</Menu.Item>
                     <Menu.Item key='edit'>{t('conversation.history.editProject')}</Menu.Item>
                     <Menu.Item key='delete'>
                       <span className='text-[rgb(var(--warning-6))]'>{t('conversation.history.deleteProject')}</span>
@@ -641,6 +648,17 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
         visible={workspacePickerProject !== null}
         onConfirm={handleSelectProjectWorkspace}
         onCancel={() => setWorkspacePickerProject(null)}
+      />
+
+      <TeamCreateModal
+        visible={teamCreateProject !== null}
+        projectId={teamCreateProject?.id}
+        onClose={() => setTeamCreateProject(null)}
+        onCreated={(team) => {
+          setTeamCreateProject(null);
+          void Promise.resolve(navigate(`/team/${team.id}`));
+          onSessionClick?.();
+        }}
       />
 
       {batchMode && !collapsed && (

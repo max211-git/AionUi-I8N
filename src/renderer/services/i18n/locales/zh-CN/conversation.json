@@ -83,6 +83,7 @@
     "projectAssignFailed": "更新会话所属项目失败",
     "newChatInProject": "新建会话",
     "newWorkspaceChatInProject": "新建工作空间会话",
+    "newTeamInProject": "新建团队",
     "projectsSection": "项目",
     "projectChatsSection": "会话",
     "projectWorkspaceChatsSection": "工作空间会话",

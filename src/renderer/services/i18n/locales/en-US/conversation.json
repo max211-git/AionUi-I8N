@@ -83,6 +83,7 @@
     "projectAssignFailed": "Failed to update conversation project",
     "newChatInProject": "New chat",
     "newWorkspaceChatInProject": "New workspace chat",
+    "newTeamInProject": "New team",
     "projectsSection": "Projects",
     "projectChatsSection": "Chats",
     "projectWorkspaceChatsSection": "Workspace chats",

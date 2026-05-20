@@ -328,6 +328,7 @@ export type I18nKey =
   | 'conversation.history.exporting'
   | 'conversation.history.moveToProject'
   | 'conversation.history.newChatInProject'
+  | 'conversation.history.newTeamInProject'
   | 'conversation.history.newWorkspaceChatInProject'
   | 'conversation.history.noHistory'
   | 'conversation.history.pin'
