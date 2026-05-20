@@ -1266,7 +1266,7 @@ const migration_v28: IMigration = {
 
 const migration_v29: IMigration = {
   version: 29,
-  name: 'Add pin support to projects and teams',
+  name: 'Add project and team pinning',
   up: (db) => {
     const projectColumns = new Set((db.pragma('table_info(projects)') as Array<{ name: string }>).map((c) => c.name));
     if (!projectColumns.has('pinned_at')) {
@@ -1285,6 +1285,22 @@ const migration_v29: IMigration = {
   },
 };
 
+const migration_v30: IMigration = {
+  version: 30,
+  name: 'Add project sort order',
+  up: (db) => {
+    const projectColumns = new Set((db.pragma('table_info(projects)') as Array<{ name: string }>).map((c) => c.name));
+    if (!projectColumns.has('sort_order')) {
+      db.exec('ALTER TABLE projects ADD COLUMN sort_order INTEGER');
+    }
+
+    console.log('[Migration v30] Added sort_order column to projects');
+  },
+  down: (_db) => {
+    console.warn('[Migration v30] Rollback skipped: sort_order column remains on projects.');
+  },
+};
+
 /**
  * All migrations in order
  */
@@ -1294,7 +1310,7 @@ export const ALL_MIGRATIONS: IMigration[] = [
   migration_v7, migration_v8, migration_v9, migration_v10, migration_v11, migration_v12,
   migration_v13, migration_v14, migration_v15, migration_v16, migration_v17, migration_v18,
   migration_v19, migration_v20, migration_v21, migration_v22, migration_v23, migration_v24,
-  migration_v25, migration_v26, migration_v27, migration_v28, migration_v29,
+  migration_v25, migration_v26, migration_v27, migration_v28, migration_v29, migration_v30,
 ];
 
 /**

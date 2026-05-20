@@ -64,6 +64,7 @@ export function initSchema(db: ISqliteDriver): void {
     name TEXT NOT NULL,
     root_path TEXT,
     pinned_at INTEGER,
+    sort_order INTEGER,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -167,4 +168,4 @@ export function setDatabaseVersion(db: ISqliteDriver, version: number): void {
  * Current database schema version
  * Update this when adding new migrations in migrations.ts
  */
-export const CURRENT_DB_VERSION = 29;
+export const CURRENT_DB_VERSION = 30;

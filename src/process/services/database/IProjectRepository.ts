@@ -13,7 +13,7 @@ export interface IProjectRepository {
   update(
     userId: string,
     id: string,
-    updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt'>>
+    updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt' | 'sortOrder'>>
   ): Promise<boolean>;
   remove(userId: string, id: string): Promise<boolean>;
   clearProjectFromConversations(userId: string, projectId: string): Promise<void>;

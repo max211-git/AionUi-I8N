@@ -88,6 +88,7 @@ export interface IProjectRow {
   name: string;
   root_path?: string | null;
   pinned_at?: number | null;
+  sort_order?: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -233,6 +234,7 @@ export function projectRowToProject(row: IProjectRow): TProject {
     name: row.name,
     rootPath: row.root_path ?? undefined,
     pinnedAt: row.pinned_at ?? undefined,
+    sortOrder: row.sort_order ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -245,6 +247,7 @@ export function projectToRow(project: TProject, userId: string): IProjectRow {
     name: project.name,
     root_path: project.rootPath ?? null,
     pinned_at: project.pinnedAt ?? null,
+    sort_order: project.sortOrder ?? null,
     created_at: project.createdAt,
     updated_at: project.updatedAt,
   };

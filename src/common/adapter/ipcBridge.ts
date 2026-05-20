@@ -1334,6 +1334,7 @@ export type TProject = {
   name: string;
   rootPath?: string;
   pinnedAt?: number;
+  sortOrder?: number;
   createdAt: number;
   updatedAt: number;
 };
@@ -1344,7 +1345,7 @@ export const project = {
   get: bridge.buildProvider<TProject | null, { id: string }>('project.get'),
   update: bridge.buildProvider<
     boolean,
-    { id: string; updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt'>> }
+    { id: string; updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt' | 'sortOrder'>> }
   >('project.update'),
   remove: bridge.buildProvider<boolean, { id: string }>('project.remove'),
   listChanged: bridge.buildEmitter<{ projectId: string; action: 'created' | 'updated' | 'deleted' }>(

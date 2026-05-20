@@ -15,7 +15,7 @@ export interface IProjectService {
   listProjects(): Promise<TProject[]>;
   getProject(id: string): Promise<TProject | null>;
   createProject(params: { name: string; rootPath?: string }): Promise<TProject>;
-  updateProject(id: string, updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt'>>): Promise<boolean>;
+  updateProject(id: string, updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt' | 'sortOrder'>>): Promise<boolean>;
   removeProject(id: string): Promise<boolean>;
 }
 
@@ -47,7 +47,7 @@ export class ProjectServiceImpl implements IProjectService {
 
   async updateProject(
     id: string,
-    updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt'>>
+    updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt' | 'sortOrder'>>
   ): Promise<boolean> {
     console.log('[ProjectServiceImpl] updateProject', { id, updates, userId: this.userId });
     const updated = await this.projectRepository.update(this.userId, id, updates);
