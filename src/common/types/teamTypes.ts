@@ -76,6 +76,7 @@ export type TTeam = {
   agents: TeamAgent[];
   /** Current session permission mode (e.g. 'plan', 'auto'). Persisted so newly spawned agents inherit it. */
   sessionMode?: string;
+  pinnedAt?: number;
   createdAt: number;
   updatedAt: number;
 };
@@ -108,10 +109,10 @@ export type ITeamAgentRenamedEvent = {
   newName: string;
 };
 
-/** IPC event pushed to renderer when the team list changes (created/removed/agent changes) */
+/** IPC event pushed to renderer when the team list changes (created/removed/project changes/agent changes) */
 export type ITeamListChangedEvent = {
   teamId: string;
-  action: 'created' | 'removed' | 'agent_added' | 'agent_removed';
+  action: 'created' | 'removed' | 'project_updated' | 'project_removed' | 'agent_added' | 'agent_removed';
 };
 
 /** IPC event for streaming agent messages to renderer */

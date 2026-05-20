@@ -1264,6 +1264,27 @@ const migration_v28: IMigration = {
   },
 };
 
+const migration_v29: IMigration = {
+  version: 29,
+  name: 'Add pin support to projects and teams',
+  up: (db) => {
+    const projectColumns = new Set((db.pragma('table_info(projects)') as Array<{ name: string }>).map((c) => c.name));
+    if (!projectColumns.has('pinned_at')) {
+      db.exec('ALTER TABLE projects ADD COLUMN pinned_at INTEGER');
+    }
+
+    const teamColumns = new Set((db.pragma('table_info(teams)') as Array<{ name: string }>).map((c) => c.name));
+    if (!teamColumns.has('pinned_at')) {
+      db.exec('ALTER TABLE teams ADD COLUMN pinned_at INTEGER');
+    }
+
+    console.log('[Migration v29] Added pinned_at columns to projects and teams');
+  },
+  down: (_db) => {
+    console.warn('[Migration v29] Rollback skipped: pinned_at columns remain on projects and teams.');
+  },
+};
+
 /**
  * All migrations in order
  */
@@ -1273,7 +1294,7 @@ export const ALL_MIGRATIONS: IMigration[] = [
   migration_v7, migration_v8, migration_v9, migration_v10, migration_v11, migration_v12,
   migration_v13, migration_v14, migration_v15, migration_v16, migration_v17, migration_v18,
   migration_v19, migration_v20, migration_v21, migration_v22, migration_v23, migration_v24,
-  migration_v25, migration_v26, migration_v27, migration_v28,
+  migration_v25, migration_v26, migration_v27, migration_v28, migration_v29,
 ];
 
 /**

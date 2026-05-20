@@ -1320,6 +1320,7 @@ export const team = {
   setSessionMode: bridge.buildProvider<void, { teamId: string; sessionMode: string }>('team.set-session-mode'),
   updateWorkspace: bridge.buildProvider<void, { teamId: string; workspace: string }>('team.update-workspace'),
   updateProject: bridge.buildProvider<void, { teamId: string; projectId?: string }>('team.update-project'),
+  updatePinned: bridge.buildProvider<void, { teamId: string; pinnedAt?: number }>('team.update-pinned'),
   agentStatusChanged: bridge.buildEmitter<import('@process/team/types').ITeamAgentStatusEvent>('team.agent.status'),
   agentSpawned: bridge.buildEmitter<import('@/common/types/teamTypes').ITeamAgentSpawnedEvent>('team.agent.spawned'),
   agentRemoved: bridge.buildEmitter<import('@/common/types/teamTypes').ITeamAgentRemovedEvent>('team.agent.removed'),
@@ -1332,6 +1333,7 @@ export type TProject = {
   id: string;
   name: string;
   rootPath?: string;
+  pinnedAt?: number;
   createdAt: number;
   updatedAt: number;
 };
@@ -1340,9 +1342,10 @@ export const project = {
   create: bridge.buildProvider<TProject, { name: string; rootPath?: string }>('project.create'),
   list: bridge.buildProvider<TProject[], void>('project.list'),
   get: bridge.buildProvider<TProject | null, { id: string }>('project.get'),
-  update: bridge.buildProvider<boolean, { id: string; updates: Partial<Pick<TProject, 'name' | 'rootPath'>> }>(
-    'project.update'
-  ),
+  update: bridge.buildProvider<
+    boolean,
+    { id: string; updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt'>> }
+  >('project.update'),
   remove: bridge.buildProvider<boolean, { id: string }>('project.remove'),
   listChanged: bridge.buildEmitter<{ projectId: string; action: 'created' | 'updated' | 'deleted' }>(
     'project.list-changed'

@@ -20,12 +20,15 @@ export class SqliteProjectRepository implements IProjectRepository {
     const db = await this.getDb();
     const rows = db
       .getDriver()
-      .prepare('SELECT * FROM projects WHERE user_id = ? ORDER BY updated_at DESC, created_at DESC')
+      .prepare(
+        'SELECT id, user_id, name, root_path, pinned_at, created_at, updated_at FROM projects WHERE user_id = ? ORDER BY pinned_at DESC NULLS LAST, updated_at DESC, created_at DESC'
+      )
       .all(userId) as Array<{
       id: string;
       user_id: string;
       name: string;
       root_path?: string | null;
+      pinned_at?: number | null;
       created_at: number;
       updated_at: number;
     }>;
@@ -34,12 +37,18 @@ export class SqliteProjectRepository implements IProjectRepository {
 
   async get(userId: string, id: string): Promise<TProject | null> {
     const db = await this.getDb();
-    const row = db.getDriver().prepare('SELECT * FROM projects WHERE user_id = ? AND id = ?').get(userId, id) as
+    const row = db
+      .getDriver()
+      .prepare(
+        'SELECT id, user_id, name, root_path, pinned_at, created_at, updated_at FROM projects WHERE user_id = ? AND id = ?'
+      )
+      .get(userId, id) as
       | {
           id: string;
           user_id: string;
           name: string;
           root_path?: string | null;
+          pinned_at?: number | null;
           created_at: number;
           updated_at: number;
         }
@@ -50,13 +59,28 @@ export class SqliteProjectRepository implements IProjectRepository {
   async create(userId: string, project: TProject): Promise<TProject> {
     const db = await this.getDb();
     db.getDriver()
-      .prepare('INSERT INTO projects (id, user_id, name, root_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(project.id, userId, project.name, project.rootPath ?? null, project.createdAt, project.updatedAt);
+      .prepare(
+        'INSERT INTO projects (id, user_id, name, root_path, pinned_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      )
+      .run(
+        project.id,
+        userId,
+        project.name,
+        project.rootPath ?? null,
+        project.pinnedAt ?? null,
+        project.createdAt,
+        project.updatedAt
+      );
     return project;
   }
 
-  async update(userId: string, id: string, updates: Partial<Pick<TProject, 'name' | 'rootPath'>>): Promise<boolean> {
+  async update(
+    userId: string,
+    id: string,
+    updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt'>>
+  ): Promise<boolean> {
     const db = await this.getDb();
+    console.log('[SqliteProjectRepository] update request', { userId, id, updates });
     const fields: string[] = [];
     const values: Array<string | number | null> = [];
 
@@ -67,6 +91,10 @@ export class SqliteProjectRepository implements IProjectRepository {
     if (updates.rootPath !== undefined) {
       fields.push('root_path = ?');
       values.push(updates.rootPath || null);
+    }
+    if (updates.pinnedAt !== undefined) {
+      fields.push('pinned_at = ?');
+      values.push(updates.pinnedAt ?? null);
     }
 
     if (fields.length === 0) {
@@ -80,6 +108,7 @@ export class SqliteProjectRepository implements IProjectRepository {
       .getDriver()
       .prepare(`UPDATE projects SET ${fields.join(', ')} WHERE user_id = ? AND id = ?`)
       .run(...values);
+    console.log('[SqliteProjectRepository] update result', { userId, id, changes: result.changes, values });
     return result.changes > 0;
   }
 

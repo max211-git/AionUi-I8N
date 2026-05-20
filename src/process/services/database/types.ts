@@ -87,6 +87,7 @@ export interface IProjectRow {
   user_id: string;
   name: string;
   root_path?: string | null;
+  pinned_at?: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -231,6 +232,7 @@ export function projectRowToProject(row: IProjectRow): TProject {
     id: row.id,
     name: row.name,
     rootPath: row.root_path ?? undefined,
+    pinnedAt: row.pinned_at ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -242,6 +244,7 @@ export function projectToRow(project: TProject, userId: string): IProjectRow {
     user_id: userId,
     name: project.name,
     root_path: project.rootPath ?? null,
+    pinned_at: project.pinnedAt ?? null,
     created_at: project.createdAt,
     updated_at: project.updatedAt,
   };

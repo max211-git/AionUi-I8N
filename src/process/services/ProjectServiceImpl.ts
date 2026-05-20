@@ -6,6 +6,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 
+import { ipcBridge } from '@/common';
 import type { TProject } from '@/common/adapter/ipcBridge';
 
 import type { IProjectRepository } from './database/IProjectRepository';
@@ -14,7 +15,7 @@ export interface IProjectService {
   listProjects(): Promise<TProject[]>;
   getProject(id: string): Promise<TProject | null>;
   createProject(params: { name: string; rootPath?: string }): Promise<TProject>;
-  updateProject(id: string, updates: Partial<Pick<TProject, 'name' | 'rootPath'>>): Promise<boolean>;
+  updateProject(id: string, updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt'>>): Promise<boolean>;
   removeProject(id: string): Promise<boolean>;
 }
 
@@ -44,8 +45,17 @@ export class ProjectServiceImpl implements IProjectService {
     return this.projectRepository.create(this.userId, project);
   }
 
-  async updateProject(id: string, updates: Partial<Pick<TProject, 'name' | 'rootPath'>>): Promise<boolean> {
-    return this.projectRepository.update(this.userId, id, updates);
+  async updateProject(
+    id: string,
+    updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt'>>
+  ): Promise<boolean> {
+    console.log('[ProjectServiceImpl] updateProject', { id, updates, userId: this.userId });
+    const updated = await this.projectRepository.update(this.userId, id, updates);
+    console.log('[ProjectServiceImpl] updateProject result', { id, updated });
+    if (updated) {
+      ipcBridge.project.listChanged.emit({ action: 'updated', projectId: id });
+    }
+    return updated;
   }
 
   async removeProject(id: string): Promise<boolean> {

@@ -40,7 +40,9 @@ export function initProjectBridge(projectService: IProjectService): void {
   });
   ipcBridge.project.update.provider(async ({ id, updates }) => {
     try {
+      console.log('[projectBridge] update request', { id, updates });
       const success = await projectService.updateProject(id, updates);
+      console.log('[projectBridge] update result', { id, success });
       if (success) emitListChanged(id, 'updated');
       return success;
     } catch (error) {

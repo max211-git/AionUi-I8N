@@ -10,7 +10,11 @@ export interface IProjectRepository {
   list(userId: string): Promise<TProject[]>;
   get(userId: string, id: string): Promise<TProject | null>;
   create(userId: string, project: TProject): Promise<TProject>;
-  update(userId: string, id: string, updates: Partial<Pick<TProject, 'name' | 'rootPath'>>): Promise<boolean>;
+  update(
+    userId: string,
+    id: string,
+    updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt'>>
+  ): Promise<boolean>;
   remove(userId: string, id: string): Promise<boolean>;
   clearProjectFromConversations(userId: string, projectId: string): Promise<void>;
 }

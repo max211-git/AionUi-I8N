@@ -778,6 +778,18 @@ export class TeamSessionService {
           this.conversationService.updateConversation(agent.conversationId, { projectId, modifyTime: now }, true)
         )
     );
+
+    ipcBridge.team.listChanged.emit({ teamId, action: projectId ? 'project_updated' : 'project_removed' });
+    ipcBridge.conversation.listChanged.emit({ conversationId: '', action: 'updated' });
+    ipcBridge.project.listChanged.emit({ action: 'updated', projectId: projectId ?? team.projectId ?? '' });
+  }
+
+  async updatePinned(teamId: string, pinnedAt?: number): Promise<void> {
+    const team = await this.repo.findById(teamId);
+    if (!team) throw new Error(`Team "${teamId}" not found`);
+    await this.repo.update(teamId, { pinnedAt, updatedAt: Date.now() });
+    ipcBridge.team.listChanged.emit({ teamId, action: 'project_updated' });
+    ipcBridge.project.listChanged.emit({ action: 'updated', projectId: team.projectId ?? '' });
   }
 
   async removeAgent(teamId: string, slotId: string): Promise<void> {

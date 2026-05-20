@@ -125,7 +125,14 @@ const buildProjectGroup = (
     conversations: sortedConvs,
     chatConversations,
     workspaceGroups,
-    teams: [...teams].toSorted((a, b) => b.updatedAt - a.updatedAt),
+    teams: [...teams].toSorted((a, b) => {
+      const pinnedA = a.pinnedAt ?? 0;
+      const pinnedB = b.pinnedAt ?? 0;
+      if (pinnedA !== pinnedB) {
+        return pinnedB - pinnedA;
+      }
+      return b.updatedAt - a.updatedAt;
+    }),
   };
 };
 
@@ -272,11 +279,31 @@ export const buildGroupedHistory = (
   );
   const { allProjectGroups, teamsByProject } = buildProjectConversationMaps(normalConversations, projects, teams);
 
-  const projectGroups = projects.map((project) =>
-    buildProjectGroup(project, allProjectGroups.get(project.id) ?? [], teamsByProject.get(project.id) ?? [])
-  );
+  const projectGroups = projects
+    .map((project) =>
+      buildProjectGroup(project, allProjectGroups.get(project.id) ?? [], teamsByProject.get(project.id) ?? [])
+    )
+    .toSorted((a, b) => {
+      const pinnedA = a.project.pinnedAt ?? 0;
+      const pinnedB = b.project.pinnedAt ?? 0;
+      if (pinnedA !== pinnedB) {
+        return pinnedB - pinnedA;
+      }
+      const latestA = Math.max(getLatestActivityTime(a.conversations), a.teams[0]?.updatedAt ?? 0, a.project.updatedAt);
+      const latestB = Math.max(getLatestActivityTime(b.conversations), b.teams[0]?.updatedAt ?? 0, b.project.updatedAt);
+      return latestB - latestA;
+    });
 
-  const unassignedTeams = teams.filter((team) => !team.projectId);
+  const unassignedTeams = teams
+    .filter((team) => !team.projectId)
+    .toSorted((a, b) => {
+      const pinnedA = a.pinnedAt ?? 0;
+      const pinnedB = b.pinnedAt ?? 0;
+      if (pinnedA !== pinnedB) {
+        return pinnedB - pinnedA;
+      }
+      return b.updatedAt - a.updatedAt;
+    });
   const nonProjectConversations = normalConversations.filter((conversation) => !conversation.projectId);
 
   return {

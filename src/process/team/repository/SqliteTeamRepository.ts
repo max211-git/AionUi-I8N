@@ -18,6 +18,7 @@ type TeamRow = {
   lead_agent_id: string;
   agents: string;
   session_mode: string | null;
+  pinned_at: number | null;
   created_at: number;
   updated_at: number;
 };
@@ -64,6 +65,7 @@ function rowToTeam(row: TeamRow): TTeam {
     leaderAgentId: row.lead_agent_id,
     agents: JSON.parse(row.agents) as TeamAgent[],
     sessionMode: row.session_mode ?? undefined,
+    pinnedAt: row.pinned_at ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -128,8 +130,8 @@ export class SqliteTeamRepository implements ITeamRepository {
   async create(team: TTeam): Promise<TTeam> {
     const db = await this.getDb();
     db.prepare(
-      `INSERT INTO teams (id, user_id, project_id, name, workspace, workspace_mode, lead_agent_id, agents, session_mode, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO teams (id, user_id, project_id, name, workspace, workspace_mode, lead_agent_id, agents, session_mode, pinned_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       team.id,
       team.userId,
@@ -140,6 +142,7 @@ export class SqliteTeamRepository implements ITeamRepository {
       team.leaderAgentId,
       JSON.stringify(team.agents),
       team.sessionMode ?? null,
+      team.pinnedAt ?? null,
       team.createdAt,
       team.updatedAt
     );
@@ -154,7 +157,9 @@ export class SqliteTeamRepository implements ITeamRepository {
 
   async findAll(userId: string): Promise<TTeam[]> {
     const db = await this.getDb();
-    const rows = db.prepare('SELECT * FROM teams WHERE user_id = ? ORDER BY updated_at DESC').all(userId) as TeamRow[];
+    const rows = db
+      .prepare('SELECT * FROM teams WHERE user_id = ? ORDER BY pinned_at DESC NULLS LAST, updated_at DESC')
+      .all(userId) as TeamRow[];
     return rows.map(rowToTeam);
   }
 
@@ -165,7 +170,7 @@ export class SqliteTeamRepository implements ITeamRepository {
     const db = await this.getDb();
     db.prepare(
       `UPDATE teams
-       SET name = ?, project_id = ?, workspace = ?, workspace_mode = ?, lead_agent_id = ?, agents = ?, session_mode = ?, updated_at = ?
+       SET name = ?, project_id = ?, workspace = ?, workspace_mode = ?, lead_agent_id = ?, agents = ?, session_mode = ?, pinned_at = ?, updated_at = ?
        WHERE id = ?`
     ).run(
       merged.name,
@@ -175,6 +180,7 @@ export class SqliteTeamRepository implements ITeamRepository {
       merged.leaderAgentId,
       JSON.stringify(merged.agents),
       merged.sessionMode ?? null,
+      merged.pinnedAt ?? null,
       merged.updatedAt,
       id
     );

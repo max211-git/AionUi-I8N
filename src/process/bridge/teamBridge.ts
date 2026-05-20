@@ -98,6 +98,12 @@ export function initTeamBridge(teamSessionService: TeamSessionService): void {
     })
   );
 
+  ipcBridge.team.updatePinned.provider(
+    safeProvider(async ({ teamId, pinnedAt }) => {
+      await teamSessionService.updatePinned(teamId, pinnedAt);
+    })
+  );
+
   ipcBridge.team.sendMessage.provider(
     safeProvider(async ({ teamId, content, files }) => {
       const session = await teamSessionService.getOrStartSession(teamId);
