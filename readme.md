@@ -633,6 +633,33 @@ brew install aionui
 2. **Sign in** with Google account or enter any API key
 3. **Start Coworking** — the built-in AI agent is ready to go
 
+### AionUI+ fork highlights
+
+This fork adds a production-ready project containment model for people who want more structure than a flat recents list.
+
+- **Projects as first-class containers** for chats, workspace chats, and teams
+- **Teams inside projects** with support for moving teams in and out of projects
+- **Recents limited to non-project items** so project-owned work stays contained
+- **Pin / unpin for projects and teams** from the sidebar menus
+- **Drag-and-drop project reordering** inside the Projects section
+- **Empty projects stay visible** so you can scaffold work before the first chat
+
+See also:
+- [Projects guide](./docs/guides/projects.md)
+- [Project containment semantics](./docs/architecture/project-containment-semantics.md)
+
+### Tracking interest / notifying requesters
+
+If you plan to make this fork public specifically for people who asked for project folders / project containers, the best place to track and notify them is GitHub Issues or Discussions.
+
+Recommended workflow:
+- open a pinned Discussion or Issue announcing that **Projects / project folders are now available in this fork**
+- link the Projects guide and the current packaged test build or release
+- reply directly on any existing feature-request threads you want to notify
+- use a consistent label such as `projects`, `project-folders`, or `fork-feature`
+
+If you already have specific upstream or fork issue links for those requests, add them here in a short list so visitors can follow the history.
+
 ### 📖 Detailed Guides
 
 <details>
@@ -695,9 +722,10 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
 Tech stack: Electron · Vite · React · Bun
 
 ```bash
-bun install        # install dependencies
-bun run dev        # start dev server
-bun run test       # run unit tests
+bun install              # install dependencies
+bun run dev              # start dev server
+bun run test             # run unit tests
+bun run build-mac:arm64  # build Apple Silicon macOS package
 ```
 
 ---
