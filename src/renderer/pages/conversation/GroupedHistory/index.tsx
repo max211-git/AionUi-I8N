@@ -1266,8 +1266,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           </DragOverlay>
         </DndContext>
 
-        {projectGroups.length > 0 && (
-          <div className='mb-8px min-w-0'>
+        <div className='mb-8px min-w-0'>
             {!collapsed && (
               <div className={classNames('flex items-center gap-4px', STICKY_SECTION_HEADER_CLASS_NAME)}>
                 <Button
@@ -1281,21 +1280,23 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 </Button>
                 {!collapsedSections.has('projects') && (
                   <>
-                    <Button
-                      type='text'
-                      size='mini'
-                      className={classNames(
-                        '!h-26px !rounded-6px !px-8px !text-12px font-medium',
-                        isProjectReorderMode
-                          ? '!bg-[rgba(var(--primary-6),0.14)] !text-[rgb(var(--primary-6))] hover:!bg-[rgba(var(--primary-6),0.2)]'
-                          : '!text-t-secondary hover:!bg-fill-3 hover:!text-t-primary'
-                      )}
-                      onClick={() => setIsProjectReorderMode((value) => !value)}
-                    >
-                      {isProjectReorderMode
-                        ? t('conversation.history.projectReorderModeExit')
-                        : t('conversation.history.projectReorderModeEnter')}
-                    </Button>
+                    {projectGroups.length > 0 && (
+                      <Button
+                        type='text'
+                        size='mini'
+                        className={classNames(
+                          '!h-26px !rounded-6px !px-8px !text-12px font-medium',
+                          isProjectReorderMode
+                            ? '!bg-[rgba(var(--primary-6),0.14)] !text-[rgb(var(--primary-6))] hover:!bg-[rgba(var(--primary-6),0.2)]'
+                            : '!text-t-secondary hover:!bg-fill-3 hover:!text-t-primary'
+                        )}
+                        onClick={() => setIsProjectReorderMode((value) => !value)}
+                      >
+                        {isProjectReorderMode
+                          ? t('conversation.history.projectReorderModeExit')
+                          : t('conversation.history.projectReorderModeEnter')}
+                      </Button>
+                    )}
                     {!isProjectReorderMode && (
                       <Button
                         type='text'
@@ -1374,7 +1375,6 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
               </>
             )}
           </div>
-        )}
 
         {unassignedTeams.length > 0 && (
           <div className='mb-8px min-w-0'>

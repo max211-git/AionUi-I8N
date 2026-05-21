@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Simplified build script for AionUi
+ * Simplified build script for AionUI+
  * Coordinates electron-vite (bundling) and electron-builder (packaging)
  *
  * Features:

@@ -561,6 +561,14 @@ describe('buildGroupedHistory', () => {
     expect(result.timelineSections).toEqual([]);
   });
 
+  it('keeps the Projects section renderable when there are no conversations yet', () => {
+    const emptyProject = createProject({ id: 'project-empty', name: 'Empty Project' });
+
+    const result = buildGroupedHistory([], [emptyProject], [], mockT);
+
+    expect(result.projectGroups.length).toBeGreaterThan(0);
+  });
+
   it('supports projects that contain only teams without crashing', () => {
     const project = createProject({ id: 'project-team-only', name: 'Team Project' });
     const team = createTeam({ id: 'team-1', name: 'Team One', projectId: project.id, updatedAt: 123 });
