@@ -392,7 +392,13 @@ const createWindow = ({ showOnReady = true }: { showOnReady?: boolean } = {}): v
 
 const handleAppReady = async (): Promise<void> => {
   app.setName(APP_NAME);
-  app.setAboutPanelOptions({ applicationName: APP_NAME });
+  app.setAboutPanelOptions({
+    applicationName: APP_NAME,
+    applicationVersion: app.getVersion(),
+    version: app.getVersion(),
+    copyright: 'AionUI+ is developed by Johnny Crivello and I8N Labs, Inc.; based on AionUi by iOfficeAI',
+    website: 'https://github.com/iOfficeAI/AionUi',
+  });
   const t0 = performance.now();
   const mark = (label: string) => console.log(`[AionUi:ready] ${label} +${Math.round(performance.now() - t0)}ms`);
   mark('start');

@@ -1278,9 +1278,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                     {t('conversation.history.projectsSection')}
                   </span>
                 </Button>
-                {!collapsedSections.has('projects') && (
-                  <>
-                    {projectGroups.length > 0 && (
+                {projectGroups.length > 0 && !collapsedSections.has('projects') && (
                       <Button
                         type='text'
                         size='mini'
@@ -1297,17 +1295,15 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                           : t('conversation.history.projectReorderModeEnter')}
                       </Button>
                     )}
-                    {!isProjectReorderMode && (
-                      <Button
-                        type='text'
-                        size='mini'
-                        className='!h-26px !w-26px !min-w-26px !rounded-6px !p-0 !text-[rgb(var(--warning-6))] hover:!bg-[rgba(var(--warning-6),0.14)] hover:!text-[rgb(var(--warning-7))]'
-                        onClick={() => setProjectModalVisible(true)}
-                      >
-                        <Plus theme='outline' size='16' />
-                      </Button>
-                    )}
-                  </>
+                {!isProjectReorderMode && (
+                  <Button
+                    type='text'
+                    size='mini'
+                    className='!h-26px !w-26px !min-w-26px !rounded-6px !p-0 !text-[rgb(var(--warning-6))] hover:!bg-[rgba(var(--warning-6),0.14)] hover:!text-[rgb(var(--warning-7))]'
+                    onClick={() => setProjectModalVisible(true)}
+                  >
+                    <Plus theme='outline' size='16' />
+                  </Button>
                 )}
                 <Button
                   type='text'
@@ -1376,17 +1372,17 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
             )}
           </div>
 
-        {unassignedTeams.length > 0 && (
-          <div className='mb-8px min-w-0'>
-            {!collapsed && (
-              <div className={classNames('flex items-center', STICKY_SECTION_HEADER_CLASS_NAME)}>
-                <Button
-                  type='text'
-                  className='!h-auto !flex-1 !justify-start !bg-transparent !p-0 !text-left hover:!bg-transparent'
-                  onClick={() => toggleSection('teams')}
-                >
-                  <span className='text-13px text-t-secondary font-bold leading-20px'>{t('team.sider.title')}</span>
-                </Button>
+        <div className='mb-8px min-w-0'>
+          {!collapsed && (
+            <div className={classNames('flex items-center', STICKY_SECTION_HEADER_CLASS_NAME)}>
+              <Button
+                type='text'
+                className='!h-auto !flex-1 !justify-start !bg-transparent !p-0 !text-left hover:!bg-transparent'
+                onClick={() => toggleSection('teams')}
+              >
+                <span className='text-13px text-t-secondary font-bold leading-20px'>{t('team.sider.title')}</span>
+              </Button>
+              {!isProjectReorderMode && (
                 <Button
                   type='text'
                   size='mini'
@@ -1395,23 +1391,23 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 >
                   <Plus theme='outline' size='16' />
                 </Button>
-                <Button
-                  type='text'
-                  size='mini'
-                  className='!h-24px !w-24px !min-w-24px !p-0 text-t-secondary hover:!bg-fill-3 hover:!text-t-primary'
-                  onClick={() => toggleSection('teams')}
-                >
-                  {collapsedSections.has('teams') ? (
-                    <Right theme='outline' size={12} />
-                  ) : (
-                    <Down theme='outline' size={12} />
-                  )}
-                </Button>
-              </div>
-            )}
-            {!collapsedSections.has('teams') && unassignedTeams.map((team) => renderTeam(team))}
-          </div>
-        )}
+              )}
+              <Button
+                type='text'
+                size='mini'
+                className='!h-24px !w-24px !min-w-24px !p-0 text-t-secondary hover:!bg-fill-3 hover:!text-t-primary'
+                onClick={() => toggleSection('teams')}
+              >
+                {collapsedSections.has('teams') ? (
+                  <Right theme='outline' size={12} />
+                ) : (
+                  <Down theme='outline' size={12} />
+                )}
+              </Button>
+            </div>
+          )}
+          {!collapsedSections.has('teams') && unassignedTeams.length > 0 && unassignedTeams.map((team) => renderTeam(team))}
+        </div>
 
         {timelineSections.map((section) => (
           <div key={section.timeline} className='mb-8px min-w-0'>

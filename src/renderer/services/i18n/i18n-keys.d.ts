@@ -963,6 +963,8 @@ export type I18nKey =
   | 'preview.word.watch.loading'
   | 'preview.word.watch.startFailed'
   | 'settings.about'
+  | 'settings.aboutForkAttribution'
+  | 'settings.aboutForkCapabilities'
   | 'settings.addCustomAgent'
   | 'settings.addCustomAgentTitle'
   | 'settings.addEnvVar'
