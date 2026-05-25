@@ -218,6 +218,20 @@ describe('AcpAgent.createOrResumeSession — Codex routing', () => {
     expect((agent as any).extra.acpSessionId).toBe('rotated-session');
     expect(onSessionIdUpdate).toHaveBeenCalledWith('rotated-session');
   });
+
+  it('bypasses Hermes resume and creates a fresh session', async () => {
+    const agent = makeAgent('hermes', 'session-hermes-1');
+    const conn: AcpConnection = (agent as any).connection;
+
+    const resumeSession = vi.spyOn(conn, 'resumeSession').mockResolvedValue({ sessionId: 'session-hermes-1' } as any);
+    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'fresh-hermes-session' } as any);
+
+    await (agent as any).createOrResumeSession();
+
+    expect(resumeSession).not.toHaveBeenCalled();
+    expect(newSession).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ mcpServers: [] }));
+    expect((agent as any).extra.acpSessionId).toBe('fresh-hermes-session');
+  });
 });
 
 // ─── parseInitializeResult: top-level modes ─────────────────────────────────

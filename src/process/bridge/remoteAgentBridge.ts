@@ -10,7 +10,11 @@ import { agentRegistry } from '@process/agent/AgentRegistry';
 import { getDatabase } from '@process/services/database';
 import { generateIdentity } from '@process/agent/openclaw/deviceIdentity';
 import { OpenClawGatewayConnection } from '@process/agent/openclaw/OpenClawGatewayConnection';
-import * as WebSocketModule from 'ws';
+
+const WebSocketModule = require('ws') as {
+  default?: WebSocketCtorLike;
+  WebSocket?: WebSocketCtorLike;
+};
 
 type WebSocketLike = {
   on(event: 'open', handler: () => void): void;
@@ -27,9 +31,8 @@ type WebSocketCtorLike = new (
   }
 ) => WebSocketLike;
 
-const DefaultWebSocketCtor = ((WebSocketModule as unknown as { default?: WebSocketCtorLike }).default ??
-  (WebSocketModule as unknown as { WebSocket?: WebSocketCtorLike }).WebSocket ??
-  (WebSocketModule as unknown as WebSocketCtorLike)) as WebSocketCtorLike;
+const DefaultWebSocketCtor = (WebSocketModule.default ?? WebSocketModule.WebSocket ?? (WebSocketModule as unknown)) as
+  WebSocketCtorLike;
 
 function getWebSocketCtor(): WebSocketCtorLike {
   const testCtor = (globalThis as { __AIONUI_TEST_WS__?: WebSocketCtorLike }).__AIONUI_TEST_WS__;

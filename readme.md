@@ -643,6 +643,8 @@ This fork is maintained as a public downstream of upstream `iOfficeAI/AionUi`. I
 - **Pin / unpin for projects and teams** from the sidebar menus
 - **Drag-and-drop project reordering** inside the Projects section
 - **Empty projects stay visible** so you can scaffold work before the first chat
+- **Resizable desktop sidebar** with a wider default and persisted width
+- **Native right-click edit menu** for chat inputs and other editable fields, ready for fork-specific extensions
 
 See also:
 - [Projects guide](./docs/guides/projects.md)

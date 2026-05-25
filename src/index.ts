@@ -32,6 +32,7 @@ import './process/bridge/feedbackBridge';
 import { wasLaunchedAtLogin } from '@process/bridge/applicationBridge';
 import { onCloseToTrayChanged, onLanguageChanged } from './process/bridge/systemSettingsBridge';
 import { setInitialLanguage } from '@process/services/i18n';
+import { registerEditableContextMenu } from '@process/services/editContextMenuService';
 import { workerTaskManager } from './process/task/workerTaskManagerSingleton';
 import { setupApplicationMenu } from './process/utils/appMenu';
 import { startWebServer } from './process/webserver';
@@ -288,6 +289,7 @@ const createWindow = ({ showOnReady = true }: { showOnReady?: boolean } = {}): v
   initMainAdapterWithWindow(mainWindow);
   bindMainWindowReferences(mainWindow);
   setupApplicationMenu();
+  registerEditableContextMenu(mainWindow);
 
   setupZoomForWindow(mainWindow);
   registerWindowMaximizeListeners(mainWindow);

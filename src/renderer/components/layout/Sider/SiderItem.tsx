@@ -70,7 +70,10 @@ const SiderItem: React.FC<SiderItemProps> = ({
         {/* Name with truncation — reserve extra room on the right when pinned
             so the pushpin never overlaps the text in the resting state. */}
         <div
-          className={classNames('h-24px min-w-0 flex-1 overflow-hidden', pinned ? styles.pinnedTextSlot : 'pr-18px')}
+          className={classNames(
+            'h-24px min-w-0 flex-1 overflow-hidden',
+            pinned ? styles.pinnedTextSlot : styles.menuTextSlot
+          )}
         >
           <div
             className={classNames(
@@ -84,7 +87,7 @@ const SiderItem: React.FC<SiderItemProps> = ({
 
         {/* Resting pin indicator — sits in its own reserved slot, no gradient overlay */}
         {hasMenu && pinned && !menuVisible && (
-          <span className='absolute right-8px top-1/2 -translate-y-1/2 flex-center text-t-secondary group-hover:hidden pointer-events-none'>
+          <span className='absolute right-38px top-1/2 -translate-y-1/2 flex-center text-t-secondary group-hover:hidden pointer-events-none'>
             <Pushpin theme='outline' size='16' />
           </span>
         )}
@@ -92,7 +95,7 @@ const SiderItem: React.FC<SiderItemProps> = ({
         {/* Hover/active actions: three-dot menu with soft gradient fade */}
         {hasMenu && (
           <div
-            className={classNames('absolute right-0px top-0px h-full items-center justify-end pr-8px', {
+            className={classNames('absolute right-0px top-0px h-full w-36px items-center justify-center', {
               flex: menuVisible,
               'hidden group-hover:flex': !menuVisible,
             })}

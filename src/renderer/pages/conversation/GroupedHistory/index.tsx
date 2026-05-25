@@ -29,7 +29,20 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button, Dropdown, Empty, Input, Menu, Message, Modal, Select } from '@arco-design/web-react';
-import { Application, Code, Comment, Down, FolderOpen, MoreOne, Peoples, Pin, Plus, Right } from '@icon-park/react';
+import {
+  Application,
+  Code,
+  Comment,
+  DeleteOne,
+  Down,
+  EditOne,
+  FolderOpen,
+  MoreOne,
+  Peoples,
+  Pin,
+  Plus,
+  Right,
+} from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -109,6 +122,10 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   const [teamAssignProjectLoading, setTeamAssignProjectLoading] = useState(false);
   const [teamAssignProjectTeam, setTeamAssignProjectTeam] = useState<TTeam | null>(null);
   const [teamAssignProjectId, setTeamAssignProjectId] = useState<string | undefined>(undefined);
+  const [teamRenameVisible, setTeamRenameVisible] = useState(false);
+  const [teamRenameLoading, setTeamRenameLoading] = useState(false);
+  const [teamRenameTarget, setTeamRenameTarget] = useState<TTeam | null>(null);
+  const [teamRenameName, setTeamRenameName] = useState('');
   const [workspaceChatCreateProject, setWorkspaceChatCreateProject] = useState<TProject | null>(null);
   const [teamCreateProject, setTeamCreateProject] = useState<TProject | null>(null);
   const topLevelTeamDraftProject = useMemo<TProject>(() => ({ id: '', name: '', createdAt: 0, updatedAt: 0 }), []);
@@ -409,6 +426,53 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     }
   }, [t, teamAssignProjectId, teamAssignProjectTeam]);
 
+  const handleTeamRenameConfirm = useCallback(async () => {
+    if (!teamRenameTarget || !teamRenameName.trim()) {
+      return;
+    }
+    setTeamRenameLoading(true);
+    try {
+      await ipcBridge.team.renameTeam.invoke({
+        id: teamRenameTarget.id,
+        name: teamRenameName.trim(),
+      });
+      Message.success(t('team.sider.renameSuccess'));
+      setTeamRenameVisible(false);
+      setTeamRenameTarget(null);
+      setTeamRenameName('');
+      refreshConversationListSync();
+    } catch (error) {
+      console.error('[GroupedHistory] Failed to rename team:', error);
+      Message.error(t('team.sider.rename'));
+    } finally {
+      setTeamRenameLoading(false);
+    }
+  }, [t, teamRenameName, teamRenameTarget]);
+
+  const handleDeleteTeam = useCallback(
+    (team: TTeam) => {
+      Modal.confirm({
+        title: t('team.sider.deleteConfirm'),
+        content: t('team.sider.deleteConfirmContent'),
+        okText: t('team.sider.deleteOk'),
+        cancelText: t('team.sider.deleteCancel'),
+        okButtonProps: { status: 'warning' },
+        onOk: async () => {
+          await ipcBridge.team.remove.invoke({ id: team.id });
+          Message.success(t('team.sider.deleteSuccess'));
+          if (id === team.id) {
+            Promise.resolve(navigate('/')).catch(() => {});
+          }
+          refreshConversationListSync();
+        },
+        style: { borderRadius: '12px' },
+        alignCenter: true,
+        getPopupContainer: () => document.body,
+      });
+    },
+    [id, navigate, t]
+  );
+
   const handleSaveProject = useCallback(async () => {
     if (!editingProject) {
       return;
@@ -599,7 +663,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       <div key={team.id} className='group relative'>
         <Button
           type='text'
-          className='!h-30px !w-full !justify-start !pl-2 !pr-40px !text-left hover:!bg-fill-3'
+          className='!h-30px !w-full !justify-start !pl-2 !pr-74px !text-left hover:!bg-fill-3'
           onClick={() => {
             void Promise.resolve(navigate(`/team/${team.id}`));
             onSessionClick?.();
@@ -610,13 +674,13 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
               <Peoples theme='outline' size='13' />
             </span>
             <span className='min-w-0 flex-1 truncate text-13px text-t-primary'>{team.name}</span>
-            {team.pinnedAt && (
-              <span className='flex-center h-20px w-20px shrink-0 text-[rgb(var(--warning-6))]'>
-                <Pin theme='filled' size='12' />
-              </span>
-            )}
           </div>
         </Button>
+        {team.pinnedAt && (
+          <span className='pointer-events-none absolute right-34px top-1/2 flex h-20px w-20px -translate-y-1/2 items-center justify-center text-[rgb(var(--warning-6))] group-hover:hidden'>
+            <Pin theme='filled' size='12' />
+          </span>
+        )}
         <div
           className='absolute right-8px top-0 flex h-30px items-center justify-end'
           onClick={(event) => {
@@ -632,6 +696,12 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                     void handleToggleTeamPinned(team);
                     return;
                   }
+                  if (key === 'rename') {
+                    setTeamRenameTarget(team);
+                    setTeamRenameName(team.name);
+                    setTeamRenameVisible(true);
+                    return;
+                  }
                   if (key === 'move-project') {
                     void handleOpenTeamAssignProject(team);
                     return;
@@ -640,12 +710,33 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                     setTeamAssignProjectTeam(team);
                     setTeamAssignProjectId(undefined);
                     setTeamAssignProjectVisible(true);
+                    return;
+                  }
+                  if (key === 'delete') {
+                    handleDeleteTeam(team);
                   }
                 }}
               >
                 <Menu.Item key='pin'>{team.pinnedAt ? t('team.sider.unpin') : t('team.sider.pin')}</Menu.Item>
-                <Menu.Item key='move-project'>{t('team.sider.moveToProject')}</Menu.Item>
-                <Menu.Item key='remove-project'>{t('team.sider.removeFromProject')}</Menu.Item>
+                <Menu.Item key='rename'>
+                  <div className='flex items-center gap-8px'>
+                    <EditOne theme='outline' size='14' />
+                    <span>{t('team.sider.rename')}</span>
+                  </div>
+                </Menu.Item>
+                <Menu.Item key='move-project'>
+                  <div className='flex items-center gap-8px'>
+                    <Peoples theme='outline' size='14' />
+                    <span>{t('team.sider.moveToProject')}</span>
+                  </div>
+                </Menu.Item>
+                {team.projectId && <Menu.Item key='remove-project'>{t('team.sider.removeFromProject')}</Menu.Item>}
+                <Menu.Item key='delete'>
+                  <div className='flex items-center gap-8px text-[rgb(var(--warning-6))]'>
+                    <DeleteOne theme='outline' size='14' />
+                    <span>{t('team.sider.delete')}</span>
+                  </div>
+                </Menu.Item>
               </Menu>
             }
             trigger='click'
@@ -952,6 +1043,34 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           onChange={setRenameModalName}
           onPressEnter={handleRenameConfirm}
           placeholder={t('conversation.history.renamePlaceholder')}
+          allowClear
+        />
+      </Modal>
+
+      <Modal
+        title={t('team.sider.renameTitle')}
+        visible={teamRenameVisible}
+        onOk={() => void handleTeamRenameConfirm()}
+        onCancel={() => {
+          setTeamRenameVisible(false);
+          setTeamRenameLoading(false);
+          setTeamRenameTarget(null);
+          setTeamRenameName('');
+        }}
+        okText={t('team.sider.renameOk')}
+        cancelText={t('team.sider.renameCancel')}
+        confirmLoading={teamRenameLoading}
+        okButtonProps={{ disabled: !teamRenameName.trim() }}
+        style={{ borderRadius: '12px' }}
+        alignCenter
+        getPopupContainer={() => document.body}
+      >
+        <Input
+          autoFocus
+          value={teamRenameName}
+          onChange={setTeamRenameName}
+          onPressEnter={() => void handleTeamRenameConfirm()}
+          placeholder={t('team.sider.renamePlaceholder')}
           allowClear
         />
       </Modal>

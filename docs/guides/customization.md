@@ -28,8 +28,16 @@ These files define the current fork-specific conversation model:
 - `src/renderer/pages/conversation/GroupedHistory/utils/historyPolicy.ts`
 - `src/renderer/pages/conversation/GroupedHistory/utils/projectOrderPolicy.ts`
 - `src/renderer/pages/conversation/GroupedHistory/utils/sectionVisibility.ts`
+- `src/renderer/components/layout/sidebarWidthPolicy.ts`
 
 If you want different containment rules, start there first.
+
+`sidebarWidthPolicy.ts` is also the right place to change:
+
+- desktop default sidebar width
+- minimum width needed to keep action affordances visible
+- maximum user-resizable width
+- persistence rules for remembered sidebar width
 
 ### Provider fallback behavior
 
@@ -38,6 +46,20 @@ Shared provider fallback and selection logic lives in:
 - `src/common/config/providerSelection.ts`
 
 This prevents renderer and process code from drifting apart when choosing model providers.
+
+### Editable text context menus
+
+Reusable native edit-menu behavior lives in:
+
+- `src/process/services/editContextMenuService.ts`
+
+Use that service if your fork wants to add app-specific right-click actions for:
+
+- chat inputs
+- prompt editors
+- other editable text surfaces
+
+Add custom menu items through the service hook instead of wiring one-off context-menu handlers into individual renderer components.
 
 ## How To Add A New Fork Opinion Safely
 

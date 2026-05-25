@@ -185,7 +185,9 @@ vi.mock('@icon-park/react', () => ({
   Application: () => <span />,
   Code: () => <span />,
   Comment: () => <span />,
+  DeleteOne: () => <span />,
   Down: () => <span />,
+  EditOne: () => <span />,
   FolderOpen: () => <span />,
   MoreOne: () => <span />,
   Peoples: () => <span />,
@@ -202,7 +204,12 @@ vi.mock('@arco-design/web-react', () => ({
     children?: React.ReactNode;
     onClick?: () => void;
   }) => <button onClick={onClick}>{children}</button>,
-  Dropdown: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Dropdown: ({ children, droplist }: { children?: React.ReactNode; droplist?: React.ReactNode }) => (
+    <div>
+      {children}
+      {droplist}
+    </div>
+  ),
   Empty: ({ description }: { description?: React.ReactNode }) => <div>{description}</div>,
   Input: ({
     value,
@@ -215,7 +222,15 @@ vi.mock('@arco-design/web-react', () => ({
     placeholder?: string;
     autoFocus?: boolean;
   }) => <input value={value} onChange={(event) => onChange?.(event.target.value)} placeholder={placeholder} autoFocus={autoFocus} />,
-  Menu: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Menu: Object.assign(({ children }: { children?: React.ReactNode }) => <div>{children}</div>, {
+    Item: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+    SubMenu: ({ children, title }: { children?: React.ReactNode; title?: React.ReactNode }) => (
+      <div>
+        {title}
+        {children}
+      </div>
+    ),
+  }),
   Message: {
     success: vi.fn(),
     error: vi.fn(),
@@ -242,5 +257,27 @@ describe('GroupedHistory sidebar visibility contracts', () => {
     expect(screen.getByText('conversation.history.projectsSection')).toBeInTheDocument();
     expect(screen.getByText('team.sider.title')).toBeInTheDocument();
     expect(screen.getByText('conversation.history.noHistory')).toBeInTheDocument();
+  });
+
+  it('keeps team rename and delete actions available in the top-level team menu', () => {
+    testState.groupedHistory = {
+      pinnedConversations: [],
+      projectGroups: [],
+      unassignedTeams: [
+        {
+          id: 'team-1',
+          name: 'Hermes Team',
+          createdAt: 1,
+          updatedAt: 1,
+          agents: [],
+        },
+      ],
+      timelineSections: [],
+    };
+
+    render(<WorkspaceGroupedHistory collapsed={false} />);
+
+    expect(screen.getByText('team.sider.rename')).toBeInTheDocument();
+    expect(screen.getByText('team.sider.delete')).toBeInTheDocument();
   });
 });

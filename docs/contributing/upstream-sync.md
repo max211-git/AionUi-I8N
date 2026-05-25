@@ -64,6 +64,16 @@ bun run test
 
 6. Build a packaged app and verify the artifact path before release.
 
+7. Smoke-test the packaged app from the installed macOS bundle, not only from source-level tests.
+
+Recommended packaged-app checks after a sync that touches Electron startup, menus, or layout:
+
+- install the fresh DMG into `/Applications`
+- confirm the About dialog reports the expected version
+- verify the app launches cleanly from Finder
+- verify the primary chat input can open the native right-click edit menu
+- verify sidebar overflow actions still stay visible at the minimum supported width
+
 ## Contract Tests To Trust First
 
 When upstream churn is high, the fastest confidence checks are the fork contracts:
@@ -85,3 +95,7 @@ Prefer separate commits for:
 3. docs/readme/release-surface updates
 
 That makes future archaeology and reverts much easier.
+
+## macOS Packaging Note
+
+For local macOS validation builds, keep the bundle in a coherent ad-hoc signed state. A weakly signed bundle can pass source tests and still fail during LaunchServices registration before Electron reaches normal app startup.
