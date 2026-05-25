@@ -44,10 +44,14 @@
    pushpin indicator so it never overlaps the row title. When the row is
    hovered, the three-dot menu takes over that slot and the text reclaims
    the gap (18px), matching non-pinned rows. */
+.menuTextSlot {
+  padding-right: 36px;
+}
+
 .pinnedTextSlot {
-  padding-right: 28px;
+  padding-right: 56px;
 }
 
 :global(.group):hover .pinnedTextSlot {
-  padding-right: 18px;
+  padding-right: 36px;
 }

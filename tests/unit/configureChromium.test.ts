@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { APP_NAME, LEGACY_DEV_APP_NAME } from '@/common/platform';
 
 const originalEnv = { ...process.env };
 
@@ -292,8 +293,8 @@ describe('configureChromium CDP (lightweight mock + file sandbox)', () => {
       const ctx = await loadConfigureChromium({ isPackaged: false });
       restores.push(ctx.restore);
 
-      expect(ctx.setNameSpy).toHaveBeenCalledWith('AionUi-Dev');
-      expect(ctx.setPathSpy).toHaveBeenCalledWith('userData', path.join(ctx.sandbox, 'AionUi-Dev'));
+      expect(ctx.setNameSpy).toHaveBeenCalledWith(APP_NAME);
+      expect(ctx.setPathSpy).toHaveBeenCalledWith('userData', path.join(ctx.sandbox, LEGACY_DEV_APP_NAME));
     });
 
     it('does not set app name or userData path in packaged builds', async () => {

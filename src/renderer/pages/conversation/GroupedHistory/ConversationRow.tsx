@@ -154,7 +154,7 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
         <FlexFullContainer
           className={classNames(
             'h-24px min-w-0 flex-1 collapsed-hidden',
-            isPinned && !isMobile ? siderStyles.pinnedTextSlot : 'pr-18px'
+            !isMobile && (isPinned ? siderStyles.pinnedTextSlot : siderStyles.menuTextSlot)
           )}
         >
           <Tooltip

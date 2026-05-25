@@ -6,6 +6,7 @@
 
 import { ipcBridge } from '@/common';
 import type { IResponseMessage } from '@/common/adapter/ipcBridge';
+import { findProviderConfigForBackend } from '@/common/config/providerSelection';
 import { ConfigStorage } from '@/common/config/storage';
 import type { IProvider } from '@/common/config/storage';
 import type { AcpModelInfo } from '@/common/types/acpTypes';
@@ -262,7 +263,7 @@ const AcpModelSelector: React.FC<{
   // 获取当前模型的健康状态
   const currentModelHealth = React.useMemo(() => {
     if (!modelInfo?.currentModelId || !modelConfig) return { status: 'unknown', color: 'bg-gray-400' };
-    const providerConfig = modelConfig.find((p) => p.platform?.includes(backend || ''));
+    const providerConfig = findProviderConfigForBackend(modelConfig, backend);
     const healthStatus = providerConfig?.modelHealth?.[modelInfo.currentModelId]?.status || 'unknown';
     const healthColor =
       healthStatus === 'healthy' ? 'bg-green-500' : healthStatus === 'unhealthy' ? 'bg-red-500' : 'bg-gray-400';
@@ -316,7 +317,7 @@ const AcpModelSelector: React.FC<{
         <Menu>
           {modelInfo.availableModels.map((model) => {
             // 获取模型健康状态
-            const providerConfig = modelConfig?.find((p) => p.platform?.includes(backend || ''));
+            const providerConfig = findProviderConfigForBackend(modelConfig || [], backend);
             const healthStatus = providerConfig?.modelHealth?.[model.id]?.status || 'unknown';
             const healthColor =
               healthStatus === 'healthy' ? 'bg-green-500' : healthStatus === 'unhealthy' ? 'bg-red-500' : 'bg-gray-400';

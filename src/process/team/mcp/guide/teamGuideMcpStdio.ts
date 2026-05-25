@@ -13,7 +13,7 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { z } from 'zod';
+import * as z from 'zod';
 import { sendTcpRequest } from '../tcpHelpers';
 import { getCreateTeamToolDescription } from '@process/team/prompts/teamGuidePrompt.ts';
 

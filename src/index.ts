@@ -20,6 +20,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
 import { initMainAdapterWithWindow } from './common/adapter/main';
+import { FORK_REPOSITORY } from './common/config/product';
 import { APP_NAME } from './common/platform';
 import { ipcBridge } from './common';
 import { AION_ASSET_PROTOCOL } from '@process/extensions';
@@ -31,6 +32,7 @@ import './process/bridge/feedbackBridge';
 import { wasLaunchedAtLogin } from '@process/bridge/applicationBridge';
 import { onCloseToTrayChanged, onLanguageChanged } from './process/bridge/systemSettingsBridge';
 import { setInitialLanguage } from '@process/services/i18n';
+import { registerEditableContextMenu } from '@process/services/editContextMenuService';
 import { workerTaskManager } from './process/task/workerTaskManagerSingleton';
 import { setupApplicationMenu } from './process/utils/appMenu';
 import { startWebServer } from './process/webserver';
@@ -287,6 +289,7 @@ const createWindow = ({ showOnReady = true }: { showOnReady?: boolean } = {}): v
   initMainAdapterWithWindow(mainWindow);
   bindMainWindowReferences(mainWindow);
   setupApplicationMenu();
+  registerEditableContextMenu(mainWindow);
 
   setupZoomForWindow(mainWindow);
   registerWindowMaximizeListeners(mainWindow);
@@ -397,7 +400,7 @@ const handleAppReady = async (): Promise<void> => {
     applicationVersion: app.getVersion(),
     version: app.getVersion(),
     copyright: 'AionUI+ is developed by Johnny Crivello and I8N Labs, Inc.; based on AionUi by iOfficeAI',
-    website: 'https://github.com/iOfficeAI/AionUi',
+    website: FORK_REPOSITORY.repoUrl,
   });
   const t0 = performance.now();
   const mark = (label: string) => console.log(`[AionUi:ready] ${label} +${Math.round(performance.now() - t0)}ms`);

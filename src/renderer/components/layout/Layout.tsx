@@ -25,6 +25,15 @@ import { cleanupSiderTooltips } from '@renderer/utils/ui/siderTooltip';
 import { useConversationShortcuts } from '@renderer/hooks/ui/useConversationShortcuts';
 import { isElectronDesktop } from '@renderer/utils/platform';
 import { computeCssSyncDecision, resolveCssByActiveTheme } from '@renderer/utils/theme/themeCssSync';
+import {
+  clampDesktopSiderWidth,
+  DEFAULT_DESKTOP_SIDER_WIDTH,
+  DESKTOP_COLLAPSED_WIDTH,
+  DESKTOP_SIDER_WIDTH_STORAGE_KEY,
+  readStoredDesktopSiderWidth,
+  SIDER_DRAG_HYSTERESIS,
+  SIDER_DRAG_SNAP_THRESHOLD,
+} from './sidebarWidthPolicy';
 import '@renderer/styles/layout.css';
 
 const useDebug = () => {
@@ -59,10 +68,6 @@ const useDebug = () => {
 
 const UpdateModal = React.lazy(() => import('@/renderer/components/settings/UpdateModal'));
 
-const DEFAULT_SIDER_WIDTH = 282;
-const DESKTOP_COLLAPSED_WIDTH = 72;
-const SIDER_DRAG_SNAP_THRESHOLD = Math.round((DEFAULT_SIDER_WIDTH + DESKTOP_COLLAPSED_WIDTH) / 2);
-const SIDER_DRAG_HYSTERESIS = 6;
 const MOBILE_SIDER_WIDTH_RATIO = 0.67;
 const MOBILE_SIDER_MIN_WIDTH = 260;
 const MOBILE_SIDER_MAX_WIDTH = 420;
@@ -91,6 +96,12 @@ const Layout: React.FC<{
   const [viewportWidth, setViewportWidth] = useState<number>(() =>
     typeof window === 'undefined' ? 390 : window.innerWidth
   );
+  const [desktopSiderWidth, setDesktopSiderWidth] = useState<number>(() => {
+    if (typeof window === 'undefined') {
+      return DEFAULT_DESKTOP_SIDER_WIDTH;
+    }
+    return readStoredDesktopSiderWidth(window.localStorage.getItem(DESKTOP_SIDER_WIDTH_STORAGE_KEY));
+  });
   const [customCss, setCustomCss] = useState<string>('');
   const [shouldMountUpdateModal, setShouldMountUpdateModal] = useState(false);
   const { onClick } = useDebug();
@@ -104,12 +115,13 @@ const Layout: React.FC<{
   const workspaceAvailable =
     location.pathname.startsWith('/conversation/') || (TEAM_MODE_ENABLED && location.pathname.startsWith('/team/'));
   const collapsedRef = useRef(collapsed);
+  const desktopSiderWidthRef = useRef(desktopSiderWidth);
   const lastCssRef = useRef('');
   const lastUiCssUpdateAtRef = useRef(0);
   const dragStateRef = useRef<{ active: boolean; startX: number; startWidth: number }>({
     active: false,
     startX: 0,
-    startWidth: DEFAULT_SIDER_WIDTH,
+    startWidth: DEFAULT_DESKTOP_SIDER_WIDTH,
   });
 
   const loadAndHealCustomCss = useCallback(async () => {
@@ -350,10 +362,18 @@ const Layout: React.FC<{
         MOBILE_SIDER_MIN_WIDTH,
         Math.min(MOBILE_SIDER_MAX_WIDTH, Math.round(viewportWidth * MOBILE_SIDER_WIDTH_RATIO))
       )
-    : DEFAULT_SIDER_WIDTH;
+    : desktopSiderWidth;
   useEffect(() => {
     collapsedRef.current = collapsed;
   }, [collapsed]);
+
+  useEffect(() => {
+    desktopSiderWidthRef.current = desktopSiderWidth;
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem(DESKTOP_SIDER_WIDTH_STORAGE_KEY, String(desktopSiderWidth));
+  }, [desktopSiderWidth]);
 
   const beginSiderResizeDrag = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
@@ -362,7 +382,7 @@ const Layout: React.FC<{
       dragStateRef.current = {
         active: true,
         startX: event.clientX,
-        startWidth: collapsedRef.current ? DESKTOP_COLLAPSED_WIDTH : DEFAULT_SIDER_WIDTH,
+        startWidth: collapsedRef.current ? DESKTOP_COLLAPSED_WIDTH : desktopSiderWidthRef.current,
       };
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
@@ -382,6 +402,12 @@ const Layout: React.FC<{
         : draggedWidth <= SIDER_DRAG_SNAP_THRESHOLD - SIDER_DRAG_HYSTERESIS;
       if (shouldCollapse !== collapsedRef.current) {
         setCollapsed(shouldCollapse);
+      }
+      if (!shouldCollapse) {
+        const nextWidth = clampDesktopSiderWidth(draggedWidth);
+        if (nextWidth !== desktopSiderWidthRef.current) {
+          setDesktopSiderWidth(nextWidth);
+        }
       }
     };
 

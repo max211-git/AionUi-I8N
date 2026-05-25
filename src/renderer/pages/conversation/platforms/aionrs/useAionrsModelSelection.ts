@@ -5,6 +5,7 @@
  */
 
 import type { IProvider, TProviderWithModel } from '@/common/config/storage';
+import { getAionrsProviderPriority } from '@/common/config/providerSelection';
 import { useModelProviderList } from '@/renderer/hooks/agent/useModelProviderList';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -35,7 +36,16 @@ export const useAionrsModelSelection = ({
 
   // AionCLI does not support Google Auth — filter it out
   const providers = useMemo(
-    () => allProviders.filter((p) => !p.platform?.toLowerCase().includes('gemini-with-google-auth')),
+    () =>
+      allProviders
+        .filter((p) => !p.platform?.toLowerCase().includes('gemini-with-google-auth'))
+        .toSorted((a, b) => {
+          const priorityDiff = getAionrsProviderPriority(a) - getAionrsProviderPriority(b);
+          if (priorityDiff !== 0) {
+            return priorityDiff;
+          }
+          return a.name.localeCompare(b.name);
+        }),
     [allProviders]
   );
 

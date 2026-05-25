@@ -1515,6 +1515,7 @@ export class AcpAgent {
   private async createOrResumeSession(): Promise<void> {
     const resumeSessionId = this.extra.acpSessionId;
     const resumeConversationId = this.extra.acpSessionConversationId;
+    const shouldBypassResume = this.extra.backend === 'hermes';
     const mcpServers = await this.loadBuiltinSessionMcpServers();
 
     // Derive teamId from injected team MCP server name (format: aionui-team-<teamId>)
@@ -1537,6 +1538,10 @@ export class AcpAgent {
             `but current conversation is ${this.id}. Discarding stale session and starting fresh.`
         );
         // Skip resume, fall through to create new session
+      } else if (resumeSessionId && shouldBypassResume) {
+        console.warn(
+          `[AcpAgent] Skipping Hermes session resume for ${resumeSessionId} due to upstream ACP replay instability.`
+        );
       } else if (resumeSessionId) {
         try {
           let response: { sessionId?: string };

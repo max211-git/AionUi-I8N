@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/v/release/iOfficeAI/AionUi?style=flat-square&color=32CD32" alt="Version">
+  <img src="https://img.shields.io/github/v/release/max211-git/AionUi-I8N?style=flat-square&color=32CD32" alt="Version">
   &nbsp;
   <img src="https://img.shields.io/badge/license-Apache--2.0-32CD32?style=flat-square&logo=apache&logoColor=white" alt="License">
   &nbsp;
@@ -24,7 +24,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/iOfficeAI/AionUi/releases">
+  <a href="https://github.com/max211-git/AionUi-I8N/releases">
     <img src="https://img.shields.io/badge/⬇️%20Download%20Now-Latest%20Release-32CD32?style=for-the-badge&logo=github&logoColor=white" alt="Download Latest Release" height="50">
   </a>
 </p>
@@ -615,7 +615,7 @@ A: All data is stored locally in a SQLite database. Nothing is uploaded to any s
 ### Install
 
 <p>
-  <a href="https://github.com/iOfficeAI/AionUi/releases">
+  <a href="https://github.com/max211-git/AionUi-I8N/releases">
     <img src="https://img.shields.io/badge/Download-Latest%20Release-32CD32?style=for-the-badge&logo=github&logoColor=white" alt="Download Latest Release" height="50">
   </a>
 </p>
@@ -635,7 +635,7 @@ brew install aionui
 
 ### AionUI+ fork highlights
 
-This fork adds a production-ready project containment model for people who want more structure than a flat recents list.
+This fork is maintained as a public downstream of upstream `iOfficeAI/AionUi`. It adds a production-ready project containment model for people who want more structure than a flat recents list, while staying deliberately easier to understand, fork, and keep in sync.
 
 - **Projects as first-class containers** for chats, workspace chats, and teams
 - **Teams inside projects** with support for moving teams in and out of projects
@@ -643,10 +643,15 @@ This fork adds a production-ready project containment model for people who want 
 - **Pin / unpin for projects and teams** from the sidebar menus
 - **Drag-and-drop project reordering** inside the Projects section
 - **Empty projects stay visible** so you can scaffold work before the first chat
+- **Resizable desktop sidebar** with a wider default and persisted width
+- **Native right-click edit menu** for chat inputs and other editable fields, ready for fork-specific extensions
 
 See also:
 - [Projects guide](./docs/guides/projects.md)
 - [Project containment semantics](./docs/architecture/project-containment-semantics.md)
+- [Downstream architecture](./docs/architecture/downstream-architecture.md)
+- [Customization guide](./docs/guides/customization.md)
+- [Upstream sync workflow](./docs/contributing/upstream-sync.md)
 
 ### Tracking interest / notifying requesters
 
@@ -659,6 +664,13 @@ Recommended workflow:
 - use a consistent label such as `projects`, `project-folders`, or `fork-feature`
 
 If you already have specific upstream or fork issue links for those requests, add them here in a short list so visitors can follow the history.
+
+### Fork maintenance principles
+
+- upstream release tags are integrated intentionally instead of loosely chasing `upstream/main`
+- fork semantics live in named policy modules instead of scattered component conditionals
+- contract tests under `tests/contract/` define the downstream guarantees
+- packaging identity and public repository links are treated as product surfaces
 
 ### 📖 Detailed Guides
 
@@ -701,9 +713,9 @@ If you already have specific upstream or fork issue links for those requests, ad
   </a>
 </p>
 
-- [GitHub Discussions](https://github.com/iOfficeAI/AionUi/discussions) — share ideas and exchange tips
-- [Report Issues](https://github.com/iOfficeAI/AionUi/issues) — bugs and feature requests
-- [Release Updates](https://github.com/iOfficeAI/AionUi/releases) — get the latest version
+- [GitHub Discussions](https://github.com/max211-git/AionUi-I8N/discussions) — share ideas and exchange tips
+- [Report Issues](https://github.com/max211-git/AionUi-I8N/issues) — bugs and feature requests
+- [Release Updates](https://github.com/max211-git/AionUi-I8N/releases) — get the latest version
 - [Discord Community](https://discord.gg/2QAwJn7Egx) — English community
 - [WeChat Group](./resources/wx-10.png) — Chinese community
 
@@ -739,8 +751,8 @@ This project is licensed under [Apache-2.0](LICENSE).
 ## Contributors
 
 <p align="center">
-  <a href="https://github.com/iOfficeAI/AionUi/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=iOfficeAI/AionUi&max=100" alt="Contributors" />
+  <a href="https://github.com/max211-git/AionUi-I8N/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=max211-git/AionUi-I8N&max=100" alt="Contributors" />
   </a>
 </p>
 
@@ -756,7 +768,7 @@ This project is licensed under [Apache-2.0](LICENSE).
 
 **If you like it, give us a star**
 
-[Report Bug](https://github.com/iOfficeAI/AionUi/issues) · [Request Feature](https://github.com/iOfficeAI/AionUi/issues)
+[Report Bug](https://github.com/max211-git/AionUi-I8N/issues) · [Request Feature](https://github.com/max211-git/AionUi-I8N/issues)
 
 </div>
 

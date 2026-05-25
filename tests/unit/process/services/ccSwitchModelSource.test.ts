@@ -8,26 +8,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { BetterSqlite3Driver } from '../../../../src/process/services/database/drivers/BetterSqlite3Driver';
+import { createDriver } from '../../../../src/process/services/database/drivers/createDriver';
 import {
   buildClaudeModelInfoFromCcSwitchConfig,
   readClaudeProviderEnvFromCcSwitch,
   readClaudeModelInfoFromCcSwitch,
 } from '../../../../src/process/services/ccSwitchModelSource';
 
-let nativeModuleAvailable = true;
-try {
-  const driver = new BetterSqlite3Driver(':memory:');
-  driver.close();
-} catch (error) {
-  if (error instanceof Error && error.message.includes('NODE_MODULE_VERSION')) {
-    nativeModuleAvailable = false;
-  }
-}
-
-const describeOrSkip = nativeModuleAvailable ? describe : describe.skip;
-
-describeOrSkip('ccSwitchModelSource', () => {
+describe('ccSwitchModelSource', () => {
   const tempDirs: string[] = [];
 
   afterEach(() => {
@@ -128,7 +116,7 @@ describeOrSkip('ccSwitchModelSource', () => {
     });
   });
 
-  it('reads the current Claude provider from cc-switch files', () => {
+  it('reads the current Claude provider from cc-switch files', async () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), 'aionui-cc-switch-'));
     tempDirs.push(tempDir);
 
@@ -139,7 +127,7 @@ describeOrSkip('ccSwitchModelSource', () => {
     writeFileSync(settingsPath, JSON.stringify({ currentProviderClaude: 'provider-1' }), 'utf-8');
     writeFileSync(claudeSettingsPath, JSON.stringify({ model: 'default' }), 'utf-8');
 
-    const driver = new BetterSqlite3Driver(databasePath);
+    const driver = await createDriver(databasePath);
     driver.exec(`
       CREATE TABLE providers (
         id TEXT PRIMARY KEY,
@@ -176,7 +164,7 @@ describeOrSkip('ccSwitchModelSource', () => {
     });
   });
 
-  it('returns null when cc-switch files do not describe a Claude provider', () => {
+  it('returns null when cc-switch files do not describe a Claude provider', async () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), 'aionui-cc-switch-'));
     tempDirs.push(tempDir);
 
@@ -185,7 +173,7 @@ describeOrSkip('ccSwitchModelSource', () => {
 
     writeFileSync(settingsPath, JSON.stringify({ currentProviderClaude: 'missing-provider' }), 'utf-8');
 
-    const driver = new BetterSqlite3Driver(databasePath);
+    const driver = await createDriver(databasePath);
     driver.exec(`
       CREATE TABLE providers (
         id TEXT PRIMARY KEY,
@@ -213,7 +201,7 @@ describeOrSkip('ccSwitchModelSource', () => {
     ).toBeNull();
   });
 
-  it('reads the current Claude provider env from cc-switch files', () => {
+  it('reads the current Claude provider env from cc-switch files', async () => {
     const tempDir = mkdtempSync(path.join(os.tmpdir(), 'aionui-cc-switch-'));
     tempDirs.push(tempDir);
 
@@ -222,7 +210,7 @@ describeOrSkip('ccSwitchModelSource', () => {
 
     writeFileSync(settingsPath, JSON.stringify({ currentProviderClaude: 'provider-1' }), 'utf-8');
 
-    const driver = new BetterSqlite3Driver(databasePath);
+    const driver = await createDriver(databasePath);
     driver.exec(`
       CREATE TABLE providers (
         id TEXT PRIMARY KEY,

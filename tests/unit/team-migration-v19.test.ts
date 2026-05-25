@@ -2,25 +2,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { initSchema } from '@process/services/database/schema';
 import { runMigrations, ALL_MIGRATIONS } from '@process/services/database/migrations';
-import { BetterSqlite3Driver } from '@process/services/database/drivers/BetterSqlite3Driver';
+import { createDriver } from '@process/services/database/drivers/createDriver';
+import type { ISqliteDriver } from '@process/services/database/drivers/ISqliteDriver';
 
-let nativeModuleAvailable = true;
-try {
-  const d = new BetterSqlite3Driver(':memory:');
-  d.close();
-} catch (e) {
-  if (e instanceof Error && e.message.includes('NODE_MODULE_VERSION')) {
-    nativeModuleAvailable = false;
-  }
-}
+describe('migration v19: teams table', () => {
+  let driver: ISqliteDriver;
 
-const describeOrSkip = nativeModuleAvailable ? describe : describe.skip;
-
-describeOrSkip('migration v19: teams table', () => {
-  let driver: BetterSqlite3Driver;
-
-  beforeEach(() => {
-    driver = new BetterSqlite3Driver(':memory:');
+  beforeEach(async () => {
+    driver = await createDriver(':memory:');
     initSchema(driver);
     runMigrations(driver, 0, 18); // bring to v18
   });
@@ -53,11 +42,11 @@ describeOrSkip('migration v19: teams table', () => {
   });
 });
 
-describeOrSkip('migration v20: lead_agent_id, mailbox, team_tasks', () => {
-  let driver: BetterSqlite3Driver;
+describe('migration v20: lead_agent_id, mailbox, team_tasks', () => {
+  let driver: ISqliteDriver;
 
-  beforeEach(() => {
-    driver = new BetterSqlite3Driver(':memory:');
+  beforeEach(async () => {
+    driver = await createDriver(':memory:');
     initSchema(driver);
     runMigrations(driver, 0, 19); // bring to v19
   });

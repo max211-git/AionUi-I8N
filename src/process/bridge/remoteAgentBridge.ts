@@ -10,7 +10,34 @@ import { agentRegistry } from '@process/agent/AgentRegistry';
 import { getDatabase } from '@process/services/database';
 import { generateIdentity } from '@process/agent/openclaw/deviceIdentity';
 import { OpenClawGatewayConnection } from '@process/agent/openclaw/OpenClawGatewayConnection';
-import WebSocket from 'ws';
+
+const WebSocketModule = require('ws') as {
+  default?: WebSocketCtorLike;
+  WebSocket?: WebSocketCtorLike;
+};
+
+type WebSocketLike = {
+  on(event: 'open', handler: () => void): void;
+  on(event: 'error', handler: (error: Error) => void): void;
+  close(): void;
+};
+
+type WebSocketCtorLike = new (
+  url: string,
+  options?: {
+    headers?: Record<string, string>;
+    handshakeTimeout?: number;
+    rejectUnauthorized?: boolean;
+  }
+) => WebSocketLike;
+
+const DefaultWebSocketCtor = (WebSocketModule.default ?? WebSocketModule.WebSocket ?? (WebSocketModule as unknown)) as
+  WebSocketCtorLike;
+
+function getWebSocketCtor(): WebSocketCtorLike {
+  const testCtor = (globalThis as { __AIONUI_TEST_WS__?: WebSocketCtorLike }).__AIONUI_TEST_WS__;
+  return testCtor ?? DefaultWebSocketCtor;
+}
 
 /**
  * Normalize and validate a WebSocket URL.
@@ -112,8 +139,9 @@ export function initRemoteAgentBridge(): void {
       }
       const wsUrl = validated.url;
 
+      const WebSocketCtor = getWebSocketCtor();
       let settled = false;
-      let ws: WebSocket | undefined;
+      let ws: WebSocketLike | undefined;
       const headers: Record<string, string> = {};
       if (authType === 'bearer' && authToken) {
         headers['Authorization'] = `Bearer ${authToken}`;
@@ -134,7 +162,7 @@ export function initRemoteAgentBridge(): void {
       }, 10_000);
 
       try {
-        ws = new WebSocket(wsUrl, {
+        ws = new WebSocketCtor(wsUrl, {
           headers,
           handshakeTimeout: 10_000,
           rejectUnauthorized: !allowInsecure,
@@ -151,7 +179,7 @@ export function initRemoteAgentBridge(): void {
         finish({ success: true });
       });
 
-      ws.on('error', (err) => {
+      ws.on('error', (err: Error) => {
         finish({ success: false, error: err.message });
       });
     });

@@ -5,6 +5,7 @@
  */
 
 import { ipcBridge } from '@/common';
+import { findProviderConfigForBackend } from '@/common/config/providerSelection';
 import type { IProvider, TProviderWithModel } from '@/common/config/storage';
 import { iconColors } from '@/renderer/styles/colors';
 import { getModelDisplayLabel } from '@/renderer/utils/model/agentLogo';
@@ -268,7 +269,7 @@ const GuidModelSelector: React.FC<GuidModelSelectorProps> = ({
               {currentAcpCachedModelInfo.availableModels.map((model) => {
                 // 获取模型健康状态
                 const backend = currentAcpCachedModelInfo.source;
-                const providerConfig = modelConfig?.find((p) => p.platform?.includes(backend || ''));
+                const providerConfig = findProviderConfigForBackend(modelConfig || [], backend);
                 const healthStatus = providerConfig?.modelHealth?.[model.id]?.status || 'unknown';
                 const healthColor =
                   healthStatus === 'healthy'

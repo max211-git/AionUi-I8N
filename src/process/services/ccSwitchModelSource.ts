@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import BetterSqlite3 from 'better-sqlite3';
-import type Database from 'better-sqlite3';
 import type { AcpModelInfo } from '@/common/types/acpTypes';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -37,6 +35,16 @@ type CcSwitchProviderRow = {
 type CcSwitchModelPricingRow = {
   model_id?: string;
   display_name?: string | null;
+};
+
+type ReadonlySqliteStatement = {
+  get(...args: unknown[]): unknown;
+  all(...args: unknown[]): unknown[];
+};
+
+type ReadonlySqliteDatabase = {
+  prepare(sql: string): ReadonlySqliteStatement;
+  close(): void;
 };
 
 export type ClaudeProviderEnv = Record<string, string>;
@@ -157,7 +165,28 @@ function normalizeProviderEnv(env: unknown): ClaudeProviderEnv {
   );
 }
 
-function readModelLabels(db: Database.Database): Map<string, string> {
+function openReadonlyDatabase(databasePath: string): ReadonlySqliteDatabase {
+  if (typeof process.versions['bun'] !== 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Database } = require('bun:sqlite') as { Database: new (path: string, options?: object) => any };
+    const db = new Database(databasePath, { readonly: true });
+    return {
+      prepare(sql: string): ReadonlySqliteStatement {
+        return {
+          get: (...args: unknown[]) => db.query(sql).get(...args),
+          all: (...args: unknown[]) => db.query(sql).all(...args) as unknown[],
+        };
+      },
+      close: () => db.close(),
+    };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const BetterSqlite3 = require('better-sqlite3') as typeof import('better-sqlite3');
+  return new BetterSqlite3(databasePath, { readonly: true, fileMustExist: true });
+}
+
+function readModelLabels(db: ReadonlySqliteDatabase): Map<string, string> {
   const rows = db.prepare('SELECT model_id, display_name FROM model_pricing').all() as CcSwitchModelPricingRow[];
   const labels = new Map<string, string>();
 
@@ -181,9 +210,9 @@ export function readClaudeModelInfoFromCcSwitch(paths?: Partial<CcSwitchPaths>):
     return null;
   }
 
-  let db: Database.Database | null = null;
+  let db: ReadonlySqliteDatabase | null = null;
   try {
-    db = new BetterSqlite3(resolvedPaths.databasePath, { readonly: true, fileMustExist: true });
+    db = openReadonlyDatabase(resolvedPaths.databasePath);
     const provider = db.prepare('SELECT settings_config FROM providers WHERE id = ? LIMIT 1').get(currentProviderId) as
       | CcSwitchProviderRow
       | undefined;
@@ -217,9 +246,9 @@ export function readClaudeProviderEnvFromCcSwitch(paths?: Partial<CcSwitchPaths>
     return {};
   }
 
-  let db: Database.Database | null = null;
+  let db: ReadonlySqliteDatabase | null = null;
   try {
-    db = new BetterSqlite3(resolvedPaths.databasePath, { readonly: true, fileMustExist: true });
+    db = openReadonlyDatabase(resolvedPaths.databasePath);
     const provider = db.prepare('SELECT settings_config FROM providers WHERE id = ? LIMIT 1').get(currentProviderId) as
       | CcSwitchProviderRow
       | undefined;

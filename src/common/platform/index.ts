@@ -1,4 +1,5 @@
 import path from 'path';
+import { PRODUCT_BRAND } from '@/common/config/product';
 import type { IPlatformServices } from './IPlatformServices';
 import { NodePlatformServices } from './NodePlatformServices';
 
@@ -8,7 +9,7 @@ let _services: IPlatformServices | null = null;
  * Resolve the dev-mode app name for environment isolation.
  * Centralised so that every call-site stays in sync.
  */
-export const APP_NAME = 'AionUI+';
+export const APP_NAME = PRODUCT_BRAND.productName;
 export const LEGACY_DEV_APP_NAME = 'AionUi-Dev';
 export const LEGACY_DEV_APP_NAME_MULTI_INSTANCE = 'AionUi-Dev-2';
 
