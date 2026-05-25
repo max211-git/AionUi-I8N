@@ -247,10 +247,6 @@
   "engines": {
     "node": ">=22 <25"
   },
-<<<<<<< HEAD
-=======
-  "aioncoreVersion": "v0.1.10",
->>>>>>> e0e90f76d (chore: bump version to 2.1.1 and aioncoreVersion to v0.1.10)
   "electronRebuild": {
     "electronVersion": "^37.3.1"
   },
