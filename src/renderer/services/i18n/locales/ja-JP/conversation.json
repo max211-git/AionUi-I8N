@@ -77,6 +77,8 @@
     "projectMemorySummaryEmpty": "共有メモリ項目はまだありません。項目を追加すると開始時サマリーがここに表示されます。",
     "projectMemoryEntriesTitle": "メモリ項目",
     "projectMemoryEmpty": "プロジェクトメモリ項目はまだありません。",
+    "projectMemorySearchPlaceholder": "プロジェクトメモリを検索",
+    "projectMemorySearchEmpty": "検索に一致するメモリ項目はありません。",
     "projectMemoryAddEntry": "メモリ項目を追加",
     "projectMemoryEditEntry": "メモリ項目を編集",
     "projectMemoryEntryNamePlaceholder": "項目名",

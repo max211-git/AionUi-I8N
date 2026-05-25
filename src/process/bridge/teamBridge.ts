@@ -104,6 +104,12 @@ export function initTeamBridge(teamSessionService: TeamSessionService): void {
     })
   );
 
+  ipcBridge.team.updateSortOrder.provider(
+    safeProvider(async ({ teamId, sortOrder }) => {
+      await teamSessionService.updateSortOrder(teamId, sortOrder);
+    })
+  );
+
   ipcBridge.team.sendMessage.provider(
     safeProvider(async ({ teamId, content, files }) => {
       const session = await teamSessionService.getOrStartSession(teamId);

@@ -1348,6 +1348,22 @@ const migration_v31: IMigration = {
   },
 };
 
+const migration_v32: IMigration = {
+  version: 32,
+  name: 'Add team sort order',
+  up: (db) => {
+    const teamColumns = new Set((db.pragma('table_info(teams)') as Array<{ name: string }>).map((c) => c.name));
+    if (!teamColumns.has('sort_order')) {
+      db.exec('ALTER TABLE teams ADD COLUMN sort_order INTEGER');
+    }
+
+    console.log('[Migration v32] Added sort_order column to teams');
+  },
+  down: (_db) => {
+    console.warn('[Migration v32] Rollback skipped: sort_order column remains on teams.');
+  },
+};
+
 /**
  * All migrations in order
  */
@@ -1358,7 +1374,7 @@ export const ALL_MIGRATIONS: IMigration[] = [
   migration_v13, migration_v14, migration_v15, migration_v16, migration_v17, migration_v18,
   migration_v19, migration_v20, migration_v21, migration_v22, migration_v23, migration_v24,
   migration_v25, migration_v26, migration_v27, migration_v28, migration_v29, migration_v30,
-  migration_v31,
+  migration_v31, migration_v32,
 ];
 
 /**

@@ -27,6 +27,7 @@ import { extractAndStripThinkTags } from './ThinkTagDetector';
 import { ConversationTurnCompletionService } from './ConversationTurnCompletionService';
 import { cronBusyGuard } from '@process/services/cron/CronBusyGuard';
 import { skillSuggestWatcher } from '@process/services/cron/SkillSuggestWatcher';
+import { prepareFirstMessage } from './agentUtils';
 
 // Aionrs-specific approval key — reuses same pattern as GeminiApprovalStore
 type AionrsApprovalKey = IApprovalKey & {
@@ -82,6 +83,8 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
   private agent: AionrsAgent | null = null;
   private agentReady: Promise<void>;
   private currentMode: string = 'default';
+  private startedWithResume = false;
+  private firstTurnRulesInjected = false;
   private _capabilities: AionrsCapabilities | null = null;
   private _configSentAt: number | null = null;
   private _messageSentAt: number | null = null;
@@ -133,9 +136,11 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
       const db = await getDatabase();
       const result = db.getConversationMessages(this.conversation_id, 0, 1);
       const hasMessages = (result.data?.length ?? 0) > 0;
+      this.startedWithResume = hasMessages;
       sessionArgs = hasMessages ? { resume: this.conversation_id } : { sessionId: this.conversation_id };
     } catch {
       // Fallback: start as new session if DB check fails
+      this.startedWithResume = false;
       sessionArgs = { sessionId: this.conversation_id };
     }
 
@@ -243,7 +248,16 @@ export class AionrsManager extends BaseAgentManager<AionrsManagerData, string> {
     this._messageSentAt = Date.now();
     mainLog('[AionrsManager]', `message sent: msg_id=${data.msg_id}`);
     if (this.agent) {
-      await this.agent.send(data.content, data.msg_id, data.files);
+      let contentToSend = data.content;
+
+      if (!this.startedWithResume && !this.firstTurnRulesInjected && this.data.data.presetRules) {
+        contentToSend = await prepareFirstMessage(data.content, {
+          presetContext: this.data.data.presetRules,
+        });
+        this.firstTurnRulesInjected = true;
+      }
+
+      await this.agent.send(contentToSend, data.msg_id, data.files);
     }
   }
 

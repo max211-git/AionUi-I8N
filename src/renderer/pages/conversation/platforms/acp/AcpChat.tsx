@@ -21,6 +21,7 @@ const AcpChat: React.FC<{
   sessionMode?: string;
   cachedConfigOptions?: import('@/common/types/acpTypes').AcpSessionConfigOption[];
   agentName?: string;
+  projectId?: string;
   cronJobId?: string;
   hideSendBox?: boolean;
   teamId?: string;
@@ -33,6 +34,7 @@ const AcpChat: React.FC<{
   sessionMode,
   cachedConfigOptions,
   agentName,
+  projectId,
   cronJobId,
   hideSendBox,
   teamId,
@@ -42,7 +44,9 @@ const AcpChat: React.FC<{
   useMessageLstCache(conversation_id);
 
   return (
-    <ConversationProvider value={{ conversationId: conversation_id, workspace, type: 'acp', cronJobId, hideSendBox }}>
+    <ConversationProvider
+      value={{ conversationId: conversation_id, workspace, projectId, type: 'acp', cronJobId, hideSendBox }}
+    >
       <div className='flex-1 flex flex-col px-20px min-h-0'>
         <FlexFullContainer>
           <MessageList className='flex-1' emptySlot={emptySlot} />

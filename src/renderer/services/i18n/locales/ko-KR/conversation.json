@@ -77,6 +77,8 @@
     "projectMemorySummaryEmpty": "공유 메모리 항목이 아직 없습니다. 항목을 추가하면 시작 요약이 여기에 표시됩니다.",
     "projectMemoryEntriesTitle": "메모리 항목",
     "projectMemoryEmpty": "프로젝트 메모리 항목이 아직 없습니다.",
+    "projectMemorySearchPlaceholder": "프로젝트 메모리 검색",
+    "projectMemorySearchEmpty": "검색과 일치하는 메모리 항목이 없습니다.",
     "projectMemoryAddEntry": "메모리 항목 추가",
     "projectMemoryEditEntry": "메모리 항목 편집",
     "projectMemoryEntryNamePlaceholder": "항목 이름",

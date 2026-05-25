@@ -15,7 +15,10 @@
     "renameOk": "Сохранить",
     "renameCancel": "Отмена",
     "renameSuccess": "Команда переименована",
-    "deleteSuccess": "Команда удалена"
+    "deleteSuccess": "Команда удалена",
+    "reorderModeEnter": "Reorder",
+    "reorderModeExit": "Done",
+    "reorderModeHint": "Drag teams to set their sidebar order."
   },
   "newAgent": "Новый агент",
   "noMessages": "Пока нет сообщений.",

@@ -39,8 +39,8 @@ import {
   FolderOpen,
   MoreOne,
   Peoples,
-  Pin,
   Plus,
+  Pushpin,
   Right,
 } from '@icon-park/react';
 import classNames from 'classnames';
@@ -63,9 +63,105 @@ import { refreshConversationListSync } from './hooks/useConversationListSync';
 import type { ConversationRowProps, ProjectGroup, WorkspaceGroupedHistoryProps } from './types';
 import { buildProjectReorderPlan, sortProjectGroupsByManualOrder } from './utils/projectOrderPolicy';
 import { getSidebarSectionVisibility } from './utils/sectionVisibility';
+import { buildTeamReorderPlan, sortTeamsByManualOrder } from './utils/teamOrderPolicy';
 
 const STICKY_SECTION_HEADER_CLASS_NAME =
   'sticky top-0 z-10 mx-8px mb-2px rounded-10px border border-solid border-[rgba(var(--primary-6),0.12)] bg-[rgba(var(--primary-6),0.08)] px-12px py-8px backdrop-blur-8px';
+const PROJECT_EXPANSION_STORAGE_KEY = 'aionui:grouped-history:expanded-projects';
+const PROJECT_SUBSECTION_EXPANSION_STORAGE_KEY = 'aionui:grouped-history:expanded-project-subsections';
+const COLLAPSED_SECTION_STORAGE_KEY = 'aionui:grouped-history:collapsed-sections';
+const PERSISTED_STATIC_SECTION_KEYS = new Set(['pinned', 'projects', 'teams']);
+
+const isProjectSectionKey = (key: string): boolean => key.startsWith('project:') && !key.slice('project:'.length).includes(':');
+const isProjectSubsectionKey = (key: string): boolean =>
+  key.startsWith('project:') && key.slice('project:'.length).includes(':');
+const isPersistedTopLevelSectionKey = (key: string, timelineSectionKeys: Set<string>): boolean =>
+  PERSISTED_STATIC_SECTION_KEYS.has(key) || timelineSectionKeys.has(key);
+
+const readExpandedProjectIds = (): string[] | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const raw = window.localStorage.getItem(PROJECT_EXPANSION_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter((value): value is string => typeof value === 'string');
+  } catch {
+    return [];
+  }
+};
+
+const writeExpandedProjectIds = (projectIds: string[]): void => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.localStorage.setItem(PROJECT_EXPANSION_STORAGE_KEY, JSON.stringify(projectIds));
+};
+
+const readExpandedProjectSubsectionKeys = (): string[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  const raw = window.localStorage.getItem(PROJECT_SUBSECTION_EXPANSION_STORAGE_KEY);
+  if (!raw) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter((value): value is string => typeof value === 'string');
+  } catch {
+    return [];
+  }
+};
+
+const writeExpandedProjectSubsectionKeys = (sectionKeys: string[]): void => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.localStorage.setItem(PROJECT_SUBSECTION_EXPANSION_STORAGE_KEY, JSON.stringify(sectionKeys));
+};
+
+const readCollapsedSectionKeys = (): string[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  const raw = window.localStorage.getItem(COLLAPSED_SECTION_STORAGE_KEY);
+  if (!raw) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter((value): value is string => typeof value === 'string');
+  } catch {
+    return [];
+  }
+};
+
+const writeCollapsedSectionKeys = (sectionKeys: string[]): void => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.localStorage.setItem(COLLAPSED_SECTION_STORAGE_KEY, JSON.stringify(sectionKeys));
+};
+
+const getProjectSubsectionKeys = (projectId: string): string[] => [
+  `project:${projectId}:teams`,
+  `project:${projectId}:workspaces`,
+  `project:${projectId}:chats`,
+  `project:${projectId}:assets`,
+];
 
 type SortableProjectCardProps = {
   projectGroup: ProjectGroup;
@@ -73,6 +169,7 @@ type SortableProjectCardProps = {
   renderProjectGroup: (
     projectGroup: ProjectGroup,
     reorderMode?: boolean,
+    inPinnedSection?: boolean,
     dragListeners?: {
       attributes: ReturnType<typeof useSortable>['attributes'];
       listeners: ReturnType<typeof useSortable>['listeners'];
@@ -100,7 +197,46 @@ const SortableProjectCard: React.FC<SortableProjectCardProps> = ({ projectGroup,
         isDragging && 'z-20'
       )}
     >
-      {renderProjectGroup(projectGroup, reorderMode, { attributes, listeners })}
+      {renderProjectGroup(projectGroup, reorderMode, false, { attributes, listeners })}
+    </div>
+  );
+};
+
+type SortableTeamCardProps = {
+  team: TTeam;
+  reorderMode: boolean;
+  renderTeam: (
+    team: TTeam,
+    reorderMode?: boolean,
+    inPinnedSection?: boolean,
+    dragListeners?: {
+      attributes: ReturnType<typeof useSortable>['attributes'];
+      listeners: ReturnType<typeof useSortable>['listeners'];
+    }
+  ) => React.ReactNode;
+};
+
+const SortableTeamCard: React.FC<SortableTeamCardProps> = ({ team, reorderMode, renderTeam }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: team.id,
+    disabled: !reorderMode,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.42 : 1,
+      }}
+      className={classNames(
+        reorderMode && 'transition-shadow transition-transform duration-150',
+        reorderMode && !isDragging && 'hover:-translate-y-1px hover:shadow-[0_6px_18px_rgba(var(--success-6),0.12)]',
+        isDragging && 'z-20'
+      )}
+    >
+      {renderTeam(team, reorderMode, false, { attributes, listeners })}
     </div>
   );
 };
@@ -136,8 +272,11 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   const topLevelTeamDraftProject = useMemo<TProject>(() => ({ id: '', name: '', createdAt: 0, updatedAt: 0 }), []);
   const [projectSaving, setProjectSaving] = useState(false);
   const [isProjectReorderMode, setIsProjectReorderMode] = useState(false);
+  const [isTeamReorderMode, setIsTeamReorderMode] = useState(false);
   const [manualProjectOrder, setManualProjectOrder] = useState<string[]>([]);
+  const [manualTeamOrder, setManualTeamOrder] = useState<string[]>([]);
   const [activeProjectGroup, setActiveProjectGroup] = useState<ProjectGroup | null>(null);
+  const [activeTeam, setActiveTeam] = useState<TTeam | null>(null);
   const projectReorderSensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 6 },
@@ -146,14 +285,6 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-  const toggleSection = useCallback((key: string) => {
-    setCollapsedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }, []);
 
   // This doesn't trigger state update, avoiding double render
   useEffect(() => {
@@ -169,15 +300,80 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     hasCompletionUnread,
     expandedWorkspaces,
     pinnedConversations,
+    pinnedProjectGroups,
+    pinnedTeams,
     projectGroups,
     unassignedTeams,
     timelineSections,
     handleToggleWorkspace,
   } = useConversations();
+  const timelineSectionKeySet = useMemo(() => new Set(timelineSections.map((section) => section.timeline)), [timelineSections]);
+
+  const toggleSection = useCallback((key: string) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+
+      if (isProjectSectionKey(key)) {
+        const projectIds = projectGroups.map((group) => group.project.id);
+        const expandedProjectIds = projectIds.filter((projectId) => !next.has(`project:${projectId}`));
+        writeExpandedProjectIds(expandedProjectIds);
+      } else if (isProjectSubsectionKey(key)) {
+        const projectSubsectionKeys = projectGroups.flatMap((group) => getProjectSubsectionKeys(group.project.id));
+        const expandedProjectSubsectionKeys = projectSubsectionKeys.filter((sectionKey) => !next.has(sectionKey));
+        writeExpandedProjectSubsectionKeys(expandedProjectSubsectionKeys);
+      } else if (isPersistedTopLevelSectionKey(key, timelineSectionKeySet)) {
+        const collapsedSectionKeys = [...next].filter((sectionKey) =>
+          isPersistedTopLevelSectionKey(sectionKey, timelineSectionKeySet)
+        );
+        writeCollapsedSectionKeys(collapsedSectionKeys);
+      }
+
+      return next;
+    });
+  }, [projectGroups, timelineSectionKeySet]);
+
+  useEffect(() => {
+    const expandedProjectIds = readExpandedProjectIds();
+    const expandedProjectSubsectionKeys = new Set(readExpandedProjectSubsectionKeys());
+    const projectIds = projectGroups.map((group) => group.project.id);
+    const expandedProjectIdSet = new Set(expandedProjectIds ?? []);
+    const storedCollapsedSectionKeys = readCollapsedSectionKeys();
+
+    setCollapsedSections((prev) => {
+      const next = new Set(
+        [...prev].filter(
+          (key) =>
+            !isProjectSectionKey(key) && !isProjectSubsectionKey(key) && !isPersistedTopLevelSectionKey(key, timelineSectionKeySet)
+        )
+      );
+      for (const sectionKey of storedCollapsedSectionKeys) {
+        if (isPersistedTopLevelSectionKey(sectionKey, timelineSectionKeySet)) {
+          next.add(sectionKey);
+        }
+      }
+      for (const projectId of projectIds) {
+        if (!expandedProjectIdSet.has(projectId)) {
+          next.add(`project:${projectId}`);
+        }
+        for (const subsectionKey of getProjectSubsectionKeys(projectId)) {
+          if (!expandedProjectSubsectionKeys.has(subsectionKey)) {
+            next.add(subsectionKey);
+          }
+        }
+      }
+      return next;
+    });
+  }, [projectGroups, timelineSectionKeySet]);
 
   const orderedProjectGroups = useMemo(() => {
     return sortProjectGroupsByManualOrder(projectGroups, manualProjectOrder);
   }, [manualProjectOrder, projectGroups]);
+
+  const orderedUnassignedTeams = useMemo(() => {
+    return sortTeamsByManualOrder(unassignedTeams, manualTeamOrder);
+  }, [manualTeamOrder, unassignedTeams]);
 
   const handleProjectDragStart = useCallback(
     (event: { active: { id: string | number } }) => {
@@ -233,6 +429,59 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       return [...retained, ...missing];
     });
   }, [projectGroups]);
+
+  const handleTeamDragStart = useCallback(
+    (event: { active: { id: string | number } }) => {
+      const team = orderedUnassignedTeams.find((item) => item.id === String(event.active.id));
+      setActiveTeam(team ?? null);
+    },
+    [orderedUnassignedTeams]
+  );
+
+  const handleTeamDragCancel = useCallback(() => {
+    setActiveTeam(null);
+  }, []);
+
+  const handleTeamDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      setActiveTeam(null);
+      if (!over || active.id === over.id) {
+        return;
+      }
+
+      const reorderPlan = buildTeamReorderPlan(orderedUnassignedTeams, String(active.id), String(over.id));
+      if (!reorderPlan) {
+        return;
+      }
+
+      setManualTeamOrder((prev) => {
+        const otherIds = prev.filter((teamId) => !reorderPlan.relevantIds.includes(teamId));
+        return [...otherIds, ...reorderPlan.nextRelevantIds];
+      });
+
+      await Promise.all(
+        reorderPlan.nextRelevantIds.map((teamId, index) =>
+          ipcBridge.team.updateSortOrder.invoke({
+            teamId,
+            sortOrder: reorderPlan.baseSortOrder + index,
+          })
+        )
+      );
+
+      refreshConversationListSync();
+    },
+    [orderedUnassignedTeams]
+  );
+
+  useEffect(() => {
+    setManualTeamOrder((prev) => {
+      const currentIds = unassignedTeams.map((team) => team.id);
+      const retained = prev.filter((teamId) => currentIds.includes(teamId));
+      const missing = currentIds.filter((teamId) => !retained.includes(teamId));
+      return [...retained, ...missing];
+    });
+  }, [unassignedTeams]);
 
   const {
     selectedConversationIds,
@@ -297,7 +546,10 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     });
 
   const getConversationRowProps = useCallback(
-    (conversation: TChatConversation): ConversationRowProps => ({
+    (
+      conversation: TChatConversation,
+      options?: { suppressPinnedIndicator?: boolean }
+    ): ConversationRowProps => ({
       conversation,
       isGenerating: isConversationGenerating(conversation.id),
       hasCompletionUnread: hasCompletionUnread(conversation.id),
@@ -307,6 +559,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       checked: selectedConversationIds.has(conversation.id),
       selected: id === conversation.id,
       menuVisible: dropdownVisibleId !== null && dropdownVisibleId === conversation.id,
+      suppressPinnedIndicator: options?.suppressPinnedIndicator,
       onToggleChecked: toggleSelectedConversation,
       onConversationClick: handleConversationClick,
       onOpenMenu: handleOpenMenu,
@@ -642,7 +895,15 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     return <ConversationRow key={conversation.id} {...rowProps} />;
   };
 
-  const renderTeam = (team: TTeam) => {
+  const renderTeam = (
+    team: TTeam,
+    reorderMode = false,
+    inPinnedSection = false,
+    dragListeners?: {
+      attributes: ReturnType<typeof useSortable>['attributes'];
+      listeners: ReturnType<typeof useSortable>['listeners'];
+    }
+  ) => {
     if (collapsed) {
       return (
         <div key={team.id} className='conversation-item [&.conversation-item+&.conversation-item]:mt-2px'>
@@ -665,94 +926,117 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     }
 
     return (
-      <div key={team.id} className='group relative'>
+      <div
+        key={team.id}
+        className={classNames('group relative', reorderMode && 'rounded-8px transition-shadow transition-transform duration-150')}
+        {...(reorderMode
+          ? {
+              ...dragListeners?.attributes,
+              ...dragListeners?.listeners,
+              onClick: (event: React.MouseEvent<HTMLDivElement>) => {
+                event.preventDefault();
+                event.stopPropagation();
+              },
+              role: undefined,
+              tabIndex: undefined,
+            }
+          : {})}
+      >
         <Button
           type='text'
-          className='!h-30px !w-full !justify-start !pl-2 !pr-74px !text-left hover:!bg-fill-3'
+          className={classNames(
+            '!h-30px !w-full !justify-start !pl-2 !text-left hover:!bg-fill-3',
+            reorderMode ? '!pr-2 cursor-grab active:cursor-grabbing' : '!pr-74px'
+          )}
           onClick={() => {
+            if (reorderMode) {
+              return;
+            }
             void Promise.resolve(navigate(`/team/${team.id}`));
             onSessionClick?.();
           }}
         >
-          <div className='ml-34px flex min-w-0 items-center gap-8px'>
+          <div className={classNames('flex min-w-0 items-center gap-8px', inPinnedSection ? 'ml-4px' : 'ml-34px')}>
             <span className='flex-center h-20px w-20px shrink-0 rounded-6px bg-[rgba(var(--success-6),0.12)] text-[rgb(var(--success-6))]'>
               <Peoples theme='outline' size='13' />
             </span>
             <span className='min-w-0 flex-1 truncate text-13px text-t-primary'>{team.name}</span>
           </div>
         </Button>
-        {team.pinnedAt && (
+        {team.pinnedAt && !inPinnedSection && (
           <span className='pointer-events-none absolute right-34px top-1/2 flex h-20px w-20px -translate-y-1/2 items-center justify-center text-[rgb(var(--warning-6))] group-hover:hidden'>
-            <Pin theme='filled' size='12' />
+            <Pushpin theme='outline' size='12' />
           </span>
         )}
-        <div
-          className='absolute right-8px top-0 flex h-30px items-center justify-end'
-          onClick={(event) => {
-            event.stopPropagation();
-          }}
-        >
-          <Dropdown
-            droplist={
-              <Menu
-                onClickMenuItem={(key) => {
-                  console.log('[WorkspaceGroupedHistory] team menu key', { teamId: team.id, key });
-                  if (key === 'pin') {
-                    void handleToggleTeamPinned(team);
-                    return;
-                  }
-                  if (key === 'rename') {
-                    setTeamRenameTarget(team);
-                    setTeamRenameName(team.name);
-                    setTeamRenameVisible(true);
-                    return;
-                  }
-                  if (key === 'move-project') {
-                    void handleOpenTeamAssignProject(team);
-                    return;
-                  }
-                  if (key === 'remove-project') {
-                    setTeamAssignProjectTeam(team);
-                    setTeamAssignProjectId(undefined);
-                    setTeamAssignProjectVisible(true);
-                    return;
-                  }
-                  if (key === 'delete') {
-                    handleDeleteTeam(team);
-                  }
-                }}
-              >
-                <Menu.Item key='pin'>{team.pinnedAt ? t('team.sider.unpin') : t('team.sider.pin')}</Menu.Item>
-                <Menu.Item key='rename'>
-                  <div className='flex items-center gap-8px'>
-                    <EditOne theme='outline' size='14' />
-                    <span>{t('team.sider.rename')}</span>
-                  </div>
-                </Menu.Item>
-                <Menu.Item key='move-project'>
-                  <div className='flex items-center gap-8px'>
-                    <Peoples theme='outline' size='14' />
-                    <span>{t('team.sider.moveToProject')}</span>
-                  </div>
-                </Menu.Item>
-                {team.projectId && <Menu.Item key='remove-project'>{t('team.sider.removeFromProject')}</Menu.Item>}
-                <Menu.Item key='delete'>
-                  <div className='flex items-center gap-8px text-[rgb(var(--warning-6))]'>
-                    <DeleteOne theme='outline' size='14' />
-                    <span>{t('team.sider.delete')}</span>
-                  </div>
-                </Menu.Item>
-              </Menu>
-            }
-            trigger='click'
-            position='br'
-            getPopupContainer={() => document.body}
+        {!reorderMode && (
+          <div
+            className='absolute right-8px top-0 flex h-30px items-center justify-end'
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
           >
-            <span className='flex-center h-24px w-24px shrink-0 rd-6px text-t-secondary hover:bg-fill-2 hover:text-t-primary'>
-              <MoreOne theme='outline' size='16' />
-            </span>
-          </Dropdown>
-        </div>
+            <Dropdown
+              droplist={
+                <Menu
+                  onClickMenuItem={(key) => {
+                    console.log('[WorkspaceGroupedHistory] team menu key', { teamId: team.id, key });
+                    if (key === 'pin') {
+                      void handleToggleTeamPinned(team);
+                      return;
+                    }
+                    if (key === 'rename') {
+                      setTeamRenameTarget(team);
+                      setTeamRenameName(team.name);
+                      setTeamRenameVisible(true);
+                      return;
+                    }
+                    if (key === 'move-project') {
+                      void handleOpenTeamAssignProject(team);
+                      return;
+                    }
+                    if (key === 'remove-project') {
+                      setTeamAssignProjectTeam(team);
+                      setTeamAssignProjectId(undefined);
+                      setTeamAssignProjectVisible(true);
+                      return;
+                    }
+                    if (key === 'delete') {
+                      handleDeleteTeam(team);
+                    }
+                  }}
+                >
+                  <Menu.Item key='pin'>{team.pinnedAt ? t('team.sider.unpin') : t('team.sider.pin')}</Menu.Item>
+                  <Menu.Item key='rename'>
+                    <div className='flex items-center gap-8px'>
+                      <EditOne theme='outline' size='14' />
+                      <span>{t('team.sider.rename')}</span>
+                    </div>
+                  </Menu.Item>
+                  <Menu.Item key='move-project'>
+                    <div className='flex items-center gap-8px'>
+                      <Peoples theme='outline' size='14' />
+                      <span>{t('team.sider.moveToProject')}</span>
+                    </div>
+                  </Menu.Item>
+                  {team.projectId && <Menu.Item key='remove-project'>{t('team.sider.removeFromProject')}</Menu.Item>}
+                  <Menu.Item key='delete'>
+                    <div className='flex items-center gap-8px text-[rgb(var(--warning-6))]'>
+                      <DeleteOne theme='outline' size='14' />
+                      <span>{t('team.sider.delete')}</span>
+                    </div>
+                  </Menu.Item>
+                </Menu>
+              }
+              trigger='click'
+              position='br'
+              getPopupContainer={() => document.body}
+            >
+              <span className='flex-center h-24px w-24px shrink-0 rd-6px text-t-secondary hover:bg-fill-2 hover:text-t-primary'>
+                <MoreOne theme='outline' size='16' />
+              </span>
+            </Dropdown>
+          </div>
+        )}
       </div>
     );
   };
@@ -760,6 +1044,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   const renderProjectGroup = (
     projectGroup: ProjectGroup,
     reorderMode = false,
+    inPinnedSection = false,
     dragListeners?: {
       attributes: ReturnType<typeof useSortable>['attributes'];
       listeners: ReturnType<typeof useSortable>['listeners'];
@@ -773,7 +1058,14 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     const teamsSectionKey = `${sectionKey}:teams`;
     const assetsSectionKey = `${sectionKey}:assets`;
 
-    const renderProjectSubheader = (key: string, icon: React.ReactNode, label: string, count?: number) => (
+    const renderProjectSubheader = (
+      key: string,
+      icon: React.ReactNode,
+      label: string,
+      count?: number,
+      quickAction?: () => void,
+      quickActionLabel?: string
+    ) => (
       <Button
         type='text'
         className='!h-28px !w-full !justify-start !px-2 !text-left hover:!bg-fill-3'
@@ -782,6 +1074,29 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
         <span className='flex min-w-0 w-full items-center gap-6px pl-18px pr-18px text-t-secondary'>
           <span className='shrink-0 text-[14px]'>{icon}</span>
           <span className='min-w-0 flex-1 truncate text-12px font-medium'>{label}</span>
+          {quickAction && quickActionLabel && (
+            <span
+              className='flex h-18px w-18px items-center justify-center rounded-999px text-t-secondary transition-colors hover:bg-fill-3 hover:text-t-primary'
+              role='button'
+              tabIndex={0}
+              aria-label={quickActionLabel}
+              title={quickActionLabel}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                quickAction();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  quickAction();
+                }
+              }}
+            >
+              <Plus theme='outline' size='12' />
+            </span>
+          )}
           {count !== undefined && (
             <span className='shrink-0 rounded-10px bg-fill-3 px-6px py-1px text-10px leading-14px text-t-secondary'>
               {count}
@@ -795,7 +1110,12 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     );
 
     const renderPlaceholder = (label: string) => (
-      <div className='ml-34px mr-8px rounded-8px border border-dashed border-[rgba(var(--primary-6),0.16)] px-8px py-6px text-11px leading-16px text-t-tertiary'>
+      <div
+        className={classNames(
+          'rounded-8px border border-dashed border-[rgba(var(--primary-6),0.16)] px-8px py-6px text-11px leading-16px text-t-tertiary',
+          inPinnedSection ? 'mx-8px' : 'ml-34px mr-8px'
+        )}
+      >
         {label}
       </div>
     );
@@ -818,11 +1138,11 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           </div>
           {!isCollapsed && (
             <>
-              {chatConversations.map((conversation) => renderConversation(conversation))}
+              {teams.map((team) => renderTeam(team, false, inPinnedSection))}
               {workspaceGroups.map((group) =>
                 group.conversations.map((conversation) => renderConversation(conversation))
               )}
-              {teams.map((team) => renderTeam(team))}
+              {chatConversations.map((conversation) => renderConversation(conversation))}
             </>
           )}
         </React.Fragment>
@@ -830,7 +1150,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     }
 
     return (
-      <div key={project.id} className='mb-2 px-8px'>
+      <div key={project.id} className={classNames('mb-2', inPinnedSection ? 'px-0' : 'px-8px')}>
         <div className='rounded-12px border border-solid border-[rgba(var(--primary-6),0.18)] bg-[rgba(var(--primary-6),0.06)] p-4px'>
           <div
             className={classNames(
@@ -864,9 +1184,9 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                   <Application theme='outline' size='16' />
                 </span>
                 <span className='min-w-0 flex-1 truncate font-medium text-t-primary'>{project.name}</span>
-                {project.pinnedAt && (
+                {project.pinnedAt && !inPinnedSection && (
                   <span className='flex-center h-20px w-20px shrink-0 text-[rgb(var(--warning-6))]'>
-                    <Pin theme='filled' size='12' />
+                    <Pushpin theme='outline' size='12' />
                   </span>
                 )}
                 <span className='shrink-0 rounded-10px bg-[rgba(var(--primary-6),0.14)] px-6px py-1px text-11px leading-16px text-[rgb(var(--primary-6))]'>
@@ -953,14 +1273,18 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           {!isCollapsed && !reorderMode && (
             <div className='flex flex-col gap-2px'>
               {renderProjectSubheader(
-                chatSectionKey,
-                <Comment theme='outline' size='14' />,
-                t('conversation.history.projectChatsSection'),
-                chatConversations.length
+                teamsSectionKey,
+                <Peoples theme='outline' size='14' />,
+                t('conversation.history.projectTeamsSection'),
+                teams.length,
+                () => setTeamCreateProject(project),
+                t('conversation.history.newTeamInProject')
               )}
-              {!collapsedSections.has(chatSectionKey) && (
+              {!collapsedSections.has(teamsSectionKey) && (
                 <div className='flex flex-col gap-1px'>
-                  {chatConversations.map((conversation) => renderConversation(conversation))}
+                  {teams.length > 0
+                    ? teams.map((team) => renderTeam(team, false, inPinnedSection))
+                    : renderPlaceholder(t('conversation.history.projectTeamsPlaceholder'))}
                 </div>
               )}
 
@@ -968,13 +1292,15 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 workspaceSectionKey,
                 <Code theme='outline' size='14' />,
                 t('conversation.history.projectWorkspaceChatsSection'),
-                workspaceGroups.reduce((count, group) => count + group.conversations.length, 0)
+                workspaceGroups.reduce((count, group) => count + group.conversations.length, 0),
+                () => setWorkspaceChatCreateProject(project),
+                t('conversation.history.newWorkspaceChatInProject')
               )}
               {!collapsedSections.has(workspaceSectionKey) && (
                 <div className='flex flex-col gap-1px'>
                   {workspaceGroups.length > 0
                     ? workspaceGroups.map((group) => (
-                        <div key={group.workspace} className={classNames({ 'pl-18px': !collapsed })}>
+                        <div key={group.workspace} className={classNames({ 'pl-18px': !collapsed && !inPinnedSection })}>
                           <WorkspaceCollapse
                             expanded={expandedWorkspaces.includes(group.workspace)}
                             onToggle={() => handleToggleWorkspace(group.workspace)}
@@ -998,16 +1324,16 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
               )}
 
               {renderProjectSubheader(
-                teamsSectionKey,
-                <Peoples theme='outline' size='14' />,
-                t('conversation.history.projectTeamsSection'),
-                teams.length
+                chatSectionKey,
+                <Comment theme='outline' size='14' />,
+                t('conversation.history.projectChatsSection'),
+                chatConversations.length,
+                () => handleCreateConversationInProject(project),
+                t('conversation.history.newChatInProject')
               )}
-              {!collapsedSections.has(teamsSectionKey) && (
+              {!collapsedSections.has(chatSectionKey) && (
                 <div className='flex flex-col gap-1px'>
-                  {teams.length > 0
-                    ? teams.map((team) => renderTeam(team))
-                    : renderPlaceholder(t('conversation.history.projectTeamsPlaceholder'))}
+                  {chatConversations.map((conversation) => renderConversation(conversation))}
                 </div>
               )}
 
@@ -1028,7 +1354,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   // Collect all sortable IDs for the pinned section
   const pinnedIds = useMemo(() => pinnedConversations.map((c) => c.id), [pinnedConversations]);
   const sectionVisibility = getSidebarSectionVisibility({
-    pinnedConversationCount: pinnedConversations.length,
+    pinnedConversationCount: pinnedConversations.length + pinnedProjectGroups.length + pinnedTeams.length,
     projectGroupCount: projectGroups.length,
     unassignedTeamCount: unassignedTeams.length,
     timelineSectionCount: timelineSections.length,
@@ -1297,7 +1623,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
-          {pinnedConversations.length > 0 && (
+          {(pinnedConversations.length > 0 || pinnedProjectGroups.length > 0 || pinnedTeams.length > 0) && (
             <div className='mb-8px min-w-0'>
               {!collapsed && (
                 <div
@@ -1317,18 +1643,30 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 </div>
               )}
               {!collapsedSections.has('pinned') && (
-                <SortableContext items={pinnedIds} strategy={verticalListSortingStrategy}>
-                  <div className='min-w-0'>
-                    {pinnedConversations.map((conversation) => {
-                      const props = getConversationRowProps(conversation);
-                      return isDragEnabled ? (
-                        <SortableConversationRow key={conversation.id} {...props} />
-                      ) : (
-                        <ConversationRow key={conversation.id} {...props} />
-                      );
-                    })}
-                  </div>
-                </SortableContext>
+                <div className='min-w-0'>
+                  {pinnedProjectGroups.map((projectGroup) => (
+                    <React.Fragment key={projectGroup.project.id}>
+                      {renderProjectGroup(projectGroup, false, true)}
+                    </React.Fragment>
+                  ))}
+                  {pinnedTeams.map((team) => (
+                    <React.Fragment key={team.id}>{renderTeam(team, false, true)}</React.Fragment>
+                  ))}
+                  {pinnedConversations.length > 0 && (
+                    <SortableContext items={pinnedIds} strategy={verticalListSortingStrategy}>
+                      <div className='min-w-0'>
+                        {pinnedConversations.map((conversation) => {
+                          const props = getConversationRowProps(conversation, { suppressPinnedIndicator: true });
+                          return isDragEnabled ? (
+                            <SortableConversationRow key={conversation.id} {...props} />
+                          ) : (
+                            <ConversationRow key={conversation.id} {...props} />
+                          );
+                        })}
+                      </div>
+                    </SortableContext>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -1432,7 +1770,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                             </span>
                             {activeProjectGroup.project.pinnedAt && (
                               <span className='flex-center h-20px w-20px shrink-0 text-[rgb(var(--warning-6))]'>
-                                <Pin theme='filled' size='12' />
+                                <Pushpin theme='outline' size='12' />
                               </span>
                             )}
                             <span className='shrink-0 rounded-10px bg-[rgba(var(--primary-6),0.18)] px-6px py-1px text-11px leading-16px text-[rgb(var(--primary-6))]'>
@@ -1460,7 +1798,22 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 >
                   <span className='text-13px text-t-secondary font-bold leading-20px'>{t('team.sider.title')}</span>
                 </Button>
-                {!isProjectReorderMode && (
+                {!isProjectReorderMode && sectionVisibility.showUnassignedTeamsList && !collapsedSections.has('teams') && unassignedTeams.length > 1 && (
+                  <Button
+                    type='text'
+                    size='mini'
+                    className={classNames(
+                      '!h-26px !rounded-6px !px-8px !text-12px font-medium',
+                      isTeamReorderMode
+                        ? '!bg-[rgba(var(--success-6),0.14)] !text-[rgb(var(--success-6))] hover:!bg-[rgba(var(--success-6),0.2)]'
+                        : '!text-t-secondary hover:!bg-fill-3 hover:!text-t-primary'
+                    )}
+                    onClick={() => setIsTeamReorderMode((value) => !value)}
+                  >
+                    {isTeamReorderMode ? t('team.sider.reorderModeExit') : t('team.sider.reorderModeEnter')}
+                  </Button>
+                )}
+                {!isProjectReorderMode && !isTeamReorderMode && (
                   <Button
                     type='text'
                     size='mini'
@@ -1484,9 +1837,47 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 </Button>
               </div>
             )}
-            {!collapsedSections.has('teams') &&
-              sectionVisibility.showUnassignedTeamsList &&
-              unassignedTeams.map((team) => renderTeam(team))}
+            {!collapsedSections.has('teams') && sectionVisibility.showUnassignedTeamsList && (
+              <>
+                {isTeamReorderMode && !collapsed && (
+                  <div className='mx-8px mb-6px rounded-10px border border-dashed border-[rgba(var(--success-6),0.18)] bg-[rgba(var(--success-6),0.06)] px-10px py-8px text-12px leading-18px text-t-secondary'>
+                    {t('team.sider.reorderModeHint')}
+                  </div>
+                )}
+                <DndContext
+                  sensors={projectReorderSensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={handleTeamDragStart}
+                  onDragCancel={handleTeamDragCancel}
+                  onDragEnd={(event) => void handleTeamDragEnd(event)}
+                >
+                  <SortableContext items={orderedUnassignedTeams.map((team) => team.id)} strategy={verticalListSortingStrategy}>
+                    {orderedUnassignedTeams.map((team) => (
+                      <SortableTeamCard key={team.id} team={team} reorderMode={isTeamReorderMode} renderTeam={renderTeam} />
+                    ))}
+                  </SortableContext>
+                  <DragOverlay>
+                    {activeTeam ? (
+                      <div className='pointer-events-none px-8px'>
+                        <div className='rounded-12px border border-solid border-[rgba(var(--success-6),0.22)] bg-[rgba(var(--success-6),0.14)] p-4px shadow-[0_12px_32px_rgba(var(--success-6),0.18)]'>
+                          <div className='ml-2 flex min-w-0 items-center gap-8px'>
+                            <span className='flex-center h-20px w-20px shrink-0 rounded-6px bg-[rgba(var(--success-6),0.12)] text-[rgb(var(--success-6))]'>
+                              <Peoples theme='outline' size='13' />
+                            </span>
+                            <span className='min-w-0 flex-1 truncate text-13px text-t-primary'>{activeTeam.name}</span>
+                            {activeTeam.pinnedAt && (
+                              <span className='flex-center h-20px w-20px shrink-0 text-[rgb(var(--warning-6))]'>
+                                <Pushpin theme='outline' size='12' />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
+              </>
+            )}
           </div>
         )}
 

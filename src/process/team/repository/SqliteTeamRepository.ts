@@ -19,6 +19,7 @@ type TeamRow = {
   agents: string;
   session_mode: string | null;
   pinned_at: number | null;
+  sort_order: number | null;
   created_at: number;
   updated_at: number;
 };
@@ -66,6 +67,7 @@ function rowToTeam(row: TeamRow): TTeam {
     agents: JSON.parse(row.agents) as TeamAgent[],
     sessionMode: row.session_mode ?? undefined,
     pinnedAt: row.pinned_at ?? undefined,
+    sortOrder: row.sort_order ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -108,6 +110,7 @@ function rowToTask(row: TaskRow): TeamTask {
 
 export class SqliteTeamRepository implements ITeamRepository {
   private readonly _driver: ISqliteDriver | undefined;
+  private _hasEnsuredSortOrderColumn = false;
 
   /**
    * @param driver - Optional ISqliteDriver for constructor injection (e.g., tests).
@@ -123,15 +126,29 @@ export class SqliteTeamRepository implements ITeamRepository {
     return aionDb.getDriver();
   }
 
+  private ensureTeamSortOrderColumn(db: ISqliteDriver): void {
+    if (this._hasEnsuredSortOrderColumn) {
+      return;
+    }
+
+    const teamColumns = new Set((db.pragma('table_info(teams)') as Array<{ name: string }>).map((column) => column.name));
+    if (!teamColumns.has('sort_order')) {
+      db.exec('ALTER TABLE teams ADD COLUMN sort_order INTEGER');
+    }
+
+    this._hasEnsuredSortOrderColumn = true;
+  }
+
   // -------------------------------------------------------------------------
   // Team CRUD
   // -------------------------------------------------------------------------
 
   async create(team: TTeam): Promise<TTeam> {
     const db = await this.getDb();
+    this.ensureTeamSortOrderColumn(db);
     db.prepare(
-      `INSERT INTO teams (id, user_id, project_id, name, workspace, workspace_mode, lead_agent_id, agents, session_mode, pinned_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO teams (id, user_id, project_id, name, workspace, workspace_mode, lead_agent_id, agents, session_mode, pinned_at, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       team.id,
       team.userId,
@@ -143,6 +160,7 @@ export class SqliteTeamRepository implements ITeamRepository {
       JSON.stringify(team.agents),
       team.sessionMode ?? null,
       team.pinnedAt ?? null,
+      team.sortOrder ?? null,
       team.createdAt,
       team.updatedAt
     );
@@ -157,8 +175,9 @@ export class SqliteTeamRepository implements ITeamRepository {
 
   async findAll(userId: string): Promise<TTeam[]> {
     const db = await this.getDb();
+    this.ensureTeamSortOrderColumn(db);
     const rows = db
-      .prepare('SELECT * FROM teams WHERE user_id = ? ORDER BY pinned_at DESC NULLS LAST, updated_at DESC')
+      .prepare('SELECT * FROM teams WHERE user_id = ? ORDER BY pinned_at DESC NULLS LAST, sort_order ASC NULLS LAST, updated_at DESC')
       .all(userId) as TeamRow[];
     return rows.map(rowToTeam);
   }
@@ -168,9 +187,10 @@ export class SqliteTeamRepository implements ITeamRepository {
     if (!current) throw new Error(`Team "${id}" not found`);
     const merged: TTeam = { ...current, ...updates };
     const db = await this.getDb();
+    this.ensureTeamSortOrderColumn(db);
     db.prepare(
       `UPDATE teams
-       SET name = ?, project_id = ?, workspace = ?, workspace_mode = ?, lead_agent_id = ?, agents = ?, session_mode = ?, pinned_at = ?, updated_at = ?
+       SET name = ?, project_id = ?, workspace = ?, workspace_mode = ?, lead_agent_id = ?, agents = ?, session_mode = ?, pinned_at = ?, sort_order = ?, updated_at = ?
        WHERE id = ?`
     ).run(
       merged.name,
@@ -181,6 +201,7 @@ export class SqliteTeamRepository implements ITeamRepository {
       JSON.stringify(merged.agents),
       merged.sessionMode ?? null,
       merged.pinnedAt ?? null,
+      merged.sortOrder ?? null,
       merged.updatedAt,
       id
     );

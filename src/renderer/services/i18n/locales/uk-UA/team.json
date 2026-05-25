@@ -15,7 +15,10 @@
     "renameOk": "Зберегти",
     "renameCancel": "Скасувати",
     "renameSuccess": "Команду перейменовано",
-    "deleteSuccess": "Команду видалено"
+    "deleteSuccess": "Команду видалено",
+    "reorderModeEnter": "Reorder",
+    "reorderModeExit": "Done",
+    "reorderModeHint": "Drag teams to set their sidebar order."
   },
   "newAgent": "Новий агент",
   "noMessages": "Повідомлень ще немає.",

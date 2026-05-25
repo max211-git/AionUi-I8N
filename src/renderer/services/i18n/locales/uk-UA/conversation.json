@@ -73,6 +73,8 @@
     "projectMemorySummaryEmpty": "Поки що немає записів спільної пам'яті. Додайте записи, щоб тут з'явився стартовий підсумок.",
     "projectMemoryEntriesTitle": "Записи пам'яті",
     "projectMemoryEmpty": "Записів пам'яті проєкту поки немає.",
+    "projectMemorySearchPlaceholder": "Пошук у пам’яті проєкту",
+    "projectMemorySearchEmpty": "Немає записів пам’яті, що відповідають пошуку.",
     "projectMemoryAddEntry": "Додати запис пам'яті",
     "projectMemoryEditEntry": "Редагувати запис пам'яті",
     "projectMemoryEntryNamePlaceholder": "Назва запису",

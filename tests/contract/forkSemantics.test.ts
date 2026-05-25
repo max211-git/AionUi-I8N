@@ -61,6 +61,7 @@ const createTeam = (overrides: Partial<TTeam> = {}): TTeam => ({
   createdAt: overrides.createdAt ?? 1000,
   updatedAt: overrides.updatedAt ?? 1000,
   pinnedAt: overrides.pinnedAt,
+  sortOrder: overrides.sortOrder,
 });
 
 describe('AionUI+ fork contracts', () => {
@@ -112,7 +113,7 @@ describe('AionUI+ fork contracts', () => {
     expect(result.timelineSections[0].items[0].conversation?.id).toBe('recent-chat');
   });
 
-  it('sorts pinned projects and pinned teams ahead of unpinned peers', () => {
+  it('promotes pinned projects and pinned teams into the global pinned section', () => {
     const projects = [
       createProject({ id: 'project-unpinned', updatedAt: 1000 }),
       createProject({ id: 'project-pinned', updatedAt: 900, pinnedAt: 2000 }),
@@ -126,9 +127,11 @@ describe('AionUI+ fork contracts', () => {
 
     const result = buildGroupedHistory([], projects, teams, t);
 
-    expect(result.projectGroups.map((group) => group.project.id)).toEqual(['project-pinned', 'project-unpinned']);
-    expect(result.projectGroups[0].teams.map((team) => team.id)).toEqual(['team-pinned', 'team-unpinned']);
-    expect(result.unassignedTeams.map((team) => team.id)).toEqual(['top-pinned', 'top-unpinned']);
+    expect(result.pinnedProjectGroups.map((group) => group.project.id)).toEqual(['project-pinned']);
+    expect(result.projectGroups.map((group) => group.project.id)).toEqual(['project-unpinned']);
+    expect(result.pinnedProjectGroups[0].teams.map((team) => team.id)).toEqual(['team-pinned', 'team-unpinned']);
+    expect(result.pinnedTeams.map((team) => team.id)).toEqual(['top-pinned']);
+    expect(result.unassignedTeams.map((team) => team.id)).toEqual(['top-unpinned']);
   });
 
   it('preserves fork identity and upstream source defaults', () => {

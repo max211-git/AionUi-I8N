@@ -8,6 +8,8 @@
   "imageGenerationModelDetected": "Обнаружена модель для изображений, инструмент изображений автоматически включён. Модель по умолчанию: {{platform}}:{{model}}",
   "auto_handling_permissions": "Автоматическая обработка запроса разрешения: {{request}}",
   "copy": "Копировать",
+  "rememberForProject": "Сохранить сообщение в память проекта",
+  "rememberForProjectLoadFailed": "Не удалось загрузить цель памяти проекта",
   "copySuccess": "Успешно скопировано",
   "copyFailed": "Не удалось скопировать",
   "copyLastOutput.empty": "Пока нет ответа для копирования",

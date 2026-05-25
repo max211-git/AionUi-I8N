@@ -73,6 +73,8 @@
     "projectMemorySummaryEmpty": "Пока нет записей общей памяти. Добавьте записи, чтобы здесь появилась стартовая сводка.",
     "projectMemoryEntriesTitle": "Записи памяти",
     "projectMemoryEmpty": "Записей памяти проекта пока нет.",
+    "projectMemorySearchPlaceholder": "Поиск по памяти проекта",
+    "projectMemorySearchEmpty": "Нет записей памяти, соответствующих поиску.",
     "projectMemoryAddEntry": "Добавить запись памяти",
     "projectMemoryEditEntry": "Редактировать запись памяти",
     "projectMemoryEntryNamePlaceholder": "Название записи",

@@ -72,7 +72,8 @@ export const useConversations = () => {
     dispatchWorkspaceExpansionChange(expandedWorkspaces);
   }, [expandedWorkspaces]);
 
-  const { pinnedConversations, projectGroups, unassignedTeams, timelineSections } = groupedHistory;
+  const { pinnedConversations, pinnedProjectGroups, pinnedTeams, projectGroups, unassignedTeams, timelineSections } =
+    groupedHistory;
 
   // Auto-expand all workspaces on first load only (#1156)
   useEffect(() => {
@@ -129,6 +130,8 @@ export const useConversations = () => {
     hasCompletionUnread,
     expandedWorkspaces,
     pinnedConversations,
+    pinnedProjectGroups,
+    pinnedTeams,
     projectGroups,
     unassignedTeams,
     timelineSections,

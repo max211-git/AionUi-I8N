@@ -20,19 +20,20 @@ const AionrsChat: React.FC<{
   conversation_id: string;
   workspace: string;
   modelSelection: AionrsModelSelection;
+  projectId?: string;
   teamId?: string;
   agentSlotId?: string;
   sessionMode?: string;
   emptySlot?: React.ReactNode;
-}> = ({ conversation_id, workspace, modelSelection, teamId, agentSlotId, sessionMode, emptySlot }) => {
+}> = ({ conversation_id, workspace, modelSelection, projectId, teamId, agentSlotId, sessionMode, emptySlot }) => {
   useMessageLstCache(conversation_id);
   const updateLocalImage = LocalImageView.useUpdateLocalImage();
   useEffect(() => {
     updateLocalImage({ root: workspace });
   }, [workspace]);
   const conversationValue = useMemo<ConversationContextValue>(() => {
-    return { conversationId: conversation_id, workspace, type: 'aionrs' };
-  }, [conversation_id, workspace]);
+    return { conversationId: conversation_id, workspace, projectId, type: 'aionrs' };
+  }, [conversation_id, workspace, projectId]);
 
   return (
     <ConversationProvider value={conversationValue}>

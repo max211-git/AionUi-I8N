@@ -8,6 +8,8 @@
   "imageGenerationModelDetected": "Görüntü modeli algılandı, görüntü aracı otomatik olarak etkinleştirildi. Varsayılan model: {{platform}}:{{model}}",
   "auto_handling_permissions": "Otomatik izin isteği işleme: {{request}}",
   "copy": "Kopyala",
+  "rememberForProject": "Mesajı proje belleğine kaydet",
+  "rememberForProjectLoadFailed": "Proje belleği hedefi yüklenemedi",
   "copySuccess": "Başarıyla kopyalandı",
   "copyFailed": "Kopyalama başarısız",
   "copyLastOutput.empty": "Henüz kopyalanacak bir yanıt yok",

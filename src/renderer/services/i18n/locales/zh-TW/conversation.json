@@ -77,6 +77,8 @@
     "projectMemorySummaryEmpty": "尚無共享記憶條目。新增條目後會在此產生啟動摘要。",
     "projectMemoryEntriesTitle": "記憶條目",
     "projectMemoryEmpty": "尚無專案記憶條目。",
+    "projectMemorySearchPlaceholder": "搜尋專案記憶",
+    "projectMemorySearchEmpty": "沒有符合搜尋的記憶條目。",
     "projectMemoryAddEntry": "新增記憶條目",
     "projectMemoryEditEntry": "編輯記憶條目",
     "projectMemoryEntryNamePlaceholder": "條目名稱",

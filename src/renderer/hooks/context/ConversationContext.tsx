@@ -24,6 +24,11 @@ export interface ConversationContextValue {
   workspace?: string;
 
   /**
+   * Owning project ID for project-backed conversations
+   */
+  projectId?: string;
+
+  /**
    * Conversation type
    * 会话类型
    */

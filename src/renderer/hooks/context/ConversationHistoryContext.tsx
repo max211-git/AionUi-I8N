@@ -21,11 +21,13 @@ export const ConversationHistoryProvider: React.FC<React.PropsWithChildren> = ({
   const conversationListSync = useConversationListSync();
 
   const groupedHistory = useMemo(() => {
+    const teams = Array.isArray(conversationListSync.teams) ? conversationListSync.teams : [];
+    const translate = typeof t === 'function' ? t : ((key: string) => key);
     return buildGroupedHistory(
       conversationListSync.conversations,
       conversationListSync.projects,
-      conversationListSync.teams,
-      t
+      teams,
+      translate
     );
   }, [conversationListSync.conversations, conversationListSync.projects, conversationListSync.teams, t]);
 

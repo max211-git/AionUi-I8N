@@ -266,9 +266,61 @@ describe('ProjectMemoryModal', () => {
     });
 
     expect(screen.getByText('Architecture')).toBeInTheDocument();
-    expect((screen.getAllByRole('textbox')[0] as HTMLTextAreaElement).value).toContain(
-      'Project convention: Keep service ownership stable.'
-    );
+    expect(screen.getByText((content) => content.includes('[Shared Project Memory]'))).toBeInTheDocument();
+  });
+
+  it('filters memory entries by name, content, and tags', async () => {
+    bridgeState.list.mockResolvedValue([
+      {
+        id: 'entry-1',
+        projectId: project.id,
+        name: 'Favorite color',
+        description: 'Preference',
+        type: 'user',
+        content: 'The user prefers black.',
+        source: 'user-explicit',
+        status: 'approved',
+        tags: ['prefs', 'color'],
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      {
+        id: 'entry-2',
+        projectId: project.id,
+        name: 'Architecture',
+        description: 'Backend',
+        type: 'project',
+        content: 'Keep service ownership stable.',
+        source: 'user-explicit',
+        status: 'approved',
+        tags: ['arch'],
+        createdAt: 2,
+        updatedAt: 2,
+      },
+    ]);
+    bridgeState.getSettings.mockResolvedValue({
+      projectId: project.id,
+      enabled: true,
+      createdAt: 1,
+      updatedAt: 2,
+    });
+
+    render(<ProjectMemoryModal visible={true} project={project} onCancel={vi.fn()} />);
+
+    await screen.findByText('Favorite color');
+
+    const search = screen.getByPlaceholderText('conversation.history.projectMemorySearchPlaceholder');
+
+    fireEvent.change(search, { target: { value: 'stable' } });
+    expect(screen.queryByText('Favorite color')).not.toBeInTheDocument();
+    expect(screen.getByText('Architecture')).toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: 'prefs' } });
+    expect(screen.getByText('Favorite color')).toBeInTheDocument();
+    expect(screen.queryByText('Architecture')).not.toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: 'missing-term' } });
+    expect(screen.getByText('conversation.history.projectMemorySearchEmpty')).toBeInTheDocument();
   });
 
   it('creates a new project memory entry from the modal flow', async () => {
@@ -307,6 +359,23 @@ describe('ProjectMemoryModal', () => {
           content: 'Keep service ownership stable.',
           tags: ['arch', 'rules'],
         },
+      });
+    });
+  });
+
+  it('enables shared project memory from the toggle', async () => {
+    render(<ProjectMemoryModal visible={true} project={project} onCancel={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(bridgeState.getSettings).toHaveBeenCalledWith({ projectId: project.id });
+    });
+
+    fireEvent.click(screen.getByRole('checkbox'));
+
+    await waitFor(() => {
+      expect(bridgeState.updateSettings).toHaveBeenCalledWith({
+        projectId: project.id,
+        enabled: true,
       });
     });
   });

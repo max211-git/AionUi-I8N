@@ -77,6 +77,8 @@
     "projectMemorySummaryEmpty": "Henüz paylaşılan hafıza girdisi yok. Başlangıç özeti oluşturmak için girdi ekleyin.",
     "projectMemoryEntriesTitle": "Hafıza girdileri",
     "projectMemoryEmpty": "Henüz proje hafızası girdisi yok.",
+    "projectMemorySearchPlaceholder": "Proje belleğinde ara",
+    "projectMemorySearchEmpty": "Aramanızla eşleşen hafıza girdisi yok.",
     "projectMemoryAddEntry": "Hafıza girdisi ekle",
     "projectMemoryEditEntry": "Hafıza girdisini düzenle",
     "projectMemoryEntryNamePlaceholder": "Girdi adı",

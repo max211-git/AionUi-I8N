@@ -15,7 +15,10 @@
     "renameOk": "保存",
     "renameCancel": "キャンセル",
     "renameSuccess": "チーム名を変更しました",
-    "deleteSuccess": "チームを削除しました"
+    "deleteSuccess": "チームを削除しました",
+    "reorderModeEnter": "Reorder",
+    "reorderModeExit": "Done",
+    "reorderModeHint": "Drag teams to set their sidebar order."
   },
   "newAgent": "New Agent",
   "noMessages": "No messages yet.",

@@ -8,6 +8,8 @@
   "imageGenerationModelDetected": "檢測到圖片模型，已自動開啟圖片工具，設置為默認模型：{{platform}}:{{model}}",
   "auto_handling_permissions": "自動處理權限請求：{{request}}",
   "copy": "複製",
+  "rememberForProject": "將訊息儲存到專案記憶",
+  "rememberForProjectLoadFailed": "載入專案記憶目標失敗",
   "copySuccess": "複製成功",
   "copyFailed": "複製失敗",
   "copyLastOutput.empty": "目前沒有可複製的回覆",

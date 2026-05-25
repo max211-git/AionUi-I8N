@@ -4,12 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { ipcBridge } from '@/common';
 import type { IMessageText } from '@/common/chat/chatLib';
+import type { TProject } from '@/common/adapter/ipcBridge';
 import { AIONUI_FILES_MARKER } from '@/common/config/constants';
 import { useConversationContextSafe } from '@/renderer/hooks/context/ConversationContext';
+import ProjectMemoryEntryEditorModal from '@/renderer/pages/conversation/GroupedHistory/components/projectMemory/ProjectMemoryEntryEditorModal';
+import { buildRememberProjectMemoryDraft } from '@/renderer/pages/conversation/GroupedHistory/components/projectMemory/editorUtils';
 import { iconColors } from '@/renderer/styles/colors';
-import { Alert, Message, Tooltip } from '@arco-design/web-react';
-import { Copy } from '@icon-park/react';
+import { Alert, Dropdown, Menu, Message, Tooltip } from '@arco-design/web-react';
+import { Copy, MoreOne } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -115,6 +119,9 @@ const MessageText: React.FC<{ message: IMessageText }> = ({ message }) => {
   const { data, json } = useFormatContent(text);
   const { t } = useTranslation();
   const [showCopyAlert, setShowCopyAlert] = useState(false);
+  const [rememberVisible, setRememberVisible] = useState(false);
+  const [rememberProject, setRememberProject] = useState<TProject | null>(null);
+  const [rememberLoading, setRememberLoading] = useState(false);
   const isUserMessage = message.position === 'right';
   const isTeammateMessage = message.position === 'left' && message.content.teammateMessage === true;
   const shouldRenderPlainText = isUserMessage;
@@ -128,6 +135,8 @@ const MessageText: React.FC<{ message: IMessageText }> = ({ message }) => {
   if (!message.content.content || (typeof message.content.content === 'string' && !message.content.content.trim())) {
     return null;
   }
+
+  const canRememberForProject = Boolean(conversationContext?.projectId && text.trim());
 
   const handleCopy = () => {
     const baseText = shouldRenderPlainText ? text : json ? JSON.stringify(data, null, 2) : text;
@@ -143,6 +152,29 @@ const MessageText: React.FC<{ message: IMessageText }> = ({ message }) => {
       });
   };
 
+  const handleOpenRememberForProject = async () => {
+    const projectId = conversationContext?.projectId;
+    if (!projectId) {
+      return;
+    }
+
+    setRememberLoading(true);
+    try {
+      const project = await ipcBridge.project.get.invoke({ id: projectId });
+      if (!project) {
+        throw new Error(`Project not found: ${projectId}`);
+      }
+
+      setRememberProject(project);
+      setRememberVisible(true);
+    } catch (error) {
+      console.error('[MessageText] Failed to load project memory target:', error);
+      Message.error(t('messages.rememberForProjectLoadFailed'));
+    } finally {
+      setRememberLoading(false);
+    }
+  };
+
   const copyButton = (
     <Tooltip content={t('common.copy', { defaultValue: 'Copy' })}>
       <div
@@ -154,6 +186,33 @@ const MessageText: React.FC<{ message: IMessageText }> = ({ message }) => {
       </div>
     </Tooltip>
   );
+
+  const rememberButton = canRememberForProject ? (
+    <Dropdown
+      droplist={
+        <Menu
+          onClickMenuItem={(key) => {
+            if (key === 'remember-project') {
+              void handleOpenRememberForProject();
+            }
+          }}
+        >
+          <Menu.Item key='remember-project'>{t('messages.rememberForProject')}</Menu.Item>
+        </Menu>
+      }
+      trigger='click'
+      position='bl'
+    >
+      <Tooltip content={t('messages.rememberForProject')}>
+        <div
+          className='p-4px rd-4px cursor-pointer hover:bg-3 transition-colors opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto'
+          style={{ lineHeight: 0 }}
+        >
+          <MoreOne theme='outline' size='16' fill={iconColors.secondary} />
+        </div>
+      </Tooltip>
+    </Dropdown>
+  ) : null;
 
   const cronMeta = message.content.cronMeta;
   const senderName = message.content.senderName;
@@ -228,6 +287,7 @@ const MessageText: React.FC<{ message: IMessageText }> = ({ message }) => {
             'flex-row-reverse': isUserMessage,
           })}
         >
+          {rememberButton}
           {copyButton}
           {message.createdAt && (
             <span className='text-12px text-t-secondary opacity-0 group-hover:opacity-100 transition-opacity select-none'>
@@ -244,6 +304,18 @@ const MessageText: React.FC<{ message: IMessageText }> = ({ message }) => {
           className='fixed top-20px left-50% transform -translate-x-50% z-9999 w-max max-w-[80%]'
           style={{ boxShadow: '0px 2px 12px rgba(0,0,0,0.12)' }}
           closable={false}
+        />
+      )}
+      {rememberProject && (
+        <ProjectMemoryEntryEditorModal
+          visible={rememberVisible}
+          projectId={rememberProject.id}
+          initialDraft={buildRememberProjectMemoryDraft(text, message.position)}
+          title={t('messages.rememberForProject')}
+          onCancel={() => {
+            setRememberVisible(false);
+            setRememberProject(null);
+          }}
         />
       )}
     </>

@@ -199,6 +199,7 @@ const GeminiConversationPanel: React.FC<{
       <GeminiChat
         conversation_id={conversation.id}
         workspace={runtimeWorkspace}
+        projectId={conversation.projectId}
         modelSelection={modelSelection}
         cronJobId={conversation.extra?.cronJobId as string | undefined}
         hideSendBox={hideSendBox}
@@ -260,6 +261,7 @@ const AionrsConversationPanel: React.FC<{ conversation: AionrsConversation; slid
       <AionrsChat
         conversation_id={conversation.id}
         workspace={runtimeWorkspace}
+        projectId={conversation.projectId}
         modelSelection={modelSelection}
         sessionMode={conversation.extra?.sessionMode}
       />
@@ -302,6 +304,7 @@ const ChatConversation: React.FC<{
             sessionMode={conversation.extra?.sessionMode}
             cachedConfigOptions={conversation.extra?.cachedConfigOptions}
             agentName={assistantDisplayName}
+            projectId={conversation.projectId}
             cronJobId={(conversation.extra as { cronJobId?: string })?.cronJobId}
             hideSendBox={hideSendBox}
           ></AcpChat>
@@ -314,6 +317,7 @@ const ChatConversation: React.FC<{
             workspace={runtimeWorkspace}
             backend='codex'
             agentName={assistantDisplayName}
+            projectId={conversation.projectId}
             cachedConfigOptions={
               (
                 conversation.extra as {
@@ -330,6 +334,7 @@ const ChatConversation: React.FC<{
             key={conversation.id}
             conversation_id={conversation.id}
             workspace={runtimeWorkspace}
+            projectId={conversation.projectId}
             cronJobId={(conversation.extra as { cronJobId?: string })?.cronJobId}
           />
         );
@@ -339,6 +344,7 @@ const ChatConversation: React.FC<{
             key={conversation.id}
             conversation_id={conversation.id}
             workspace={runtimeWorkspace}
+            projectId={conversation.projectId}
             cronJobId={(conversation.extra as { cronJobId?: string })?.cronJobId}
           />
         );
@@ -348,6 +354,7 @@ const ChatConversation: React.FC<{
             key={conversation.id}
             conversation_id={conversation.id}
             workspace={runtimeWorkspace}
+            projectId={conversation.projectId}
             cronJobId={(conversation.extra as { cronJobId?: string })?.cronJobId}
           />
         );

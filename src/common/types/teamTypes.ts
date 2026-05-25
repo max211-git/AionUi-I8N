@@ -77,6 +77,7 @@ export type TTeam = {
   /** Current session permission mode (e.g. 'plan', 'auto'). Persisted so newly spawned agents inherit it. */
   sessionMode?: string;
   pinnedAt?: number;
+  sortOrder?: number;
   createdAt: number;
   updatedAt: number;
 };

@@ -31,7 +31,10 @@
     "removeFromProject": "Remove from project",
     "removeFromProjectSuccess": "Team removed from project",
     "removeFromProjectFailed": "Failed to remove team from project",
-    "assignProjectLoadFailed": "Failed to load projects"
+    "assignProjectLoadFailed": "Failed to load projects",
+    "reorderModeEnter": "Reorder",
+    "reorderModeExit": "Done",
+    "reorderModeHint": "Drag teams to set their sidebar order."
   },
   "newAgent": "New Agent",
   "noMessages": "No messages yet.",

@@ -57,6 +57,8 @@ const createProject = (overrides: Partial<TProject> = {}): TProject => ({
   rootPath: overrides.rootPath,
   createdAt: overrides.createdAt ?? 1000,
   updatedAt: overrides.updatedAt ?? 1000,
+  pinnedAt: overrides.pinnedAt,
+  sortOrder: overrides.sortOrder,
 });
 
 const createTeam = (overrides: Partial<TTeam> = {}): TTeam => ({
@@ -71,6 +73,8 @@ const createTeam = (overrides: Partial<TTeam> = {}): TTeam => ({
   sessionMode: overrides.sessionMode,
   createdAt: overrides.createdAt ?? 1000,
   updatedAt: overrides.updatedAt ?? 1000,
+  pinnedAt: overrides.pinnedAt,
+  sortOrder: overrides.sortOrder,
 });
 
 describe('isCronJobConversation', () => {
@@ -249,7 +253,7 @@ describe('groupConversationsByWorkspace', () => {
       },
     ];
 
-    const result = groupConversationsByWorkspace(conversations, [], mockT);
+    const result = groupConversationsByWorkspace(conversations, [], [], mockT);
 
     expect(result).toHaveLength(1);
     expect(result[0].timeline).toBe('conversation.history.recents');
@@ -286,7 +290,7 @@ describe('groupConversationsByWorkspace', () => {
       },
     ];
 
-    const result = groupConversationsByWorkspace(conversations, [], mockT);
+    const result = groupConversationsByWorkspace(conversations, [], [], mockT);
 
     expect(result).toHaveLength(1);
     expect(result[0].items).toHaveLength(2);
@@ -324,7 +328,7 @@ describe('groupConversationsByWorkspace', () => {
       },
     ];
 
-    const result = groupConversationsByWorkspace(conversations, [], mockT);
+    const result = groupConversationsByWorkspace(conversations, [], [], mockT);
 
     expect(result[0].items[0].time).toBe(5000); // workspace /path/a
     expect(result[0].items[1].time).toBe(3000); // conv-3
@@ -332,7 +336,7 @@ describe('groupConversationsByWorkspace', () => {
   });
 
   it('returns empty array when no conversations', () => {
-    const result = groupConversationsByWorkspace([], [], mockT);
+    const result = groupConversationsByWorkspace([], [], [], mockT);
     expect(result).toEqual([]);
   });
 
@@ -364,7 +368,7 @@ describe('groupConversationsByWorkspace', () => {
       },
     ];
 
-    const result = groupConversationsByWorkspace(conversations, [], mockT);
+    const result = groupConversationsByWorkspace(conversations, [], [], mockT);
 
     const workspaceGroup = result[0].items[0].workspaceGroup;
     expect(workspaceGroup?.conversations[0].id).toBe('conv-2'); // 3000
@@ -392,7 +396,7 @@ describe('groupConversationsByWorkspace', () => {
       },
     ];
 
-    const result = groupConversationsByWorkspace(conversations, [], mockT);
+    const result = groupConversationsByWorkspace(conversations, [], [], mockT);
 
     // Both should be treated as without workspace
     expect(result[0].items).toHaveLength(2);
@@ -422,7 +426,7 @@ describe('buildGroupedHistory', () => {
       },
     ];
 
-    const result = buildGroupedHistory(conversations, [], mockT);
+    const result = buildGroupedHistory(conversations, [], [], mockT);
 
     expect(result.pinnedConversations).toHaveLength(1);
     expect(result.pinnedConversations[0].id).toBe('conv-1');
@@ -450,7 +454,7 @@ describe('buildGroupedHistory', () => {
       },
     ];
 
-    const result = buildGroupedHistory(conversations, [], mockT);
+    const result = buildGroupedHistory(conversations, [], [], mockT);
 
     expect(result.pinnedConversations).toHaveLength(0);
     expect(result.timelineSections[0].items).toHaveLength(1);
@@ -485,7 +489,7 @@ describe('buildGroupedHistory', () => {
       },
     ];
 
-    const result = buildGroupedHistory(conversations, [], mockT);
+    const result = buildGroupedHistory(conversations, [], [], mockT);
 
     // conv-2 (sortOrder 1000) < conv-1 (sortOrder 2000) < conv-3 (no sortOrder, sorted by pinnedAt)
     expect(result.pinnedConversations[0].id).toBe('conv-2');
@@ -513,7 +517,7 @@ describe('buildGroupedHistory', () => {
       },
     ];
 
-    const result = buildGroupedHistory(conversations, [], mockT);
+    const result = buildGroupedHistory(conversations, [], [], mockT);
 
     // Descending by pinnedAt: conv-2 (3000) before conv-1 (2000)
     expect(result.pinnedConversations[0].id).toBe('conv-2');
@@ -579,6 +583,55 @@ describe('buildGroupedHistory', () => {
     expect(result.projectGroups[0]?.project.id).toBe(project.id);
     expect(result.projectGroups[0]?.teams.map((item) => item.id)).toEqual([team.id]);
     expect(result.timelineSections).toEqual([]);
+  });
+
+  it('promotes pinned projects into the global pinned section', () => {
+    const pinnedProject = createProject({ id: 'project-pinned', name: 'Pinned Project', pinnedAt: 5000 });
+    const regularProject = createProject({ id: 'project-regular', name: 'Regular Project' });
+
+    const result = buildGroupedHistory([], [pinnedProject, regularProject], [], mockT);
+
+    expect(result.pinnedProjectGroups.map((group) => group.project.id)).toEqual(['project-pinned']);
+    expect(result.projectGroups.map((group) => group.project.id)).toEqual(['project-regular']);
+  });
+
+  it('promotes pinned teams into the global pinned section and removes them from project and top-level team lists', () => {
+    const project = createProject({ id: 'project-1', name: 'Project One' });
+    const pinnedProjectTeam = createTeam({ id: 'team-pinned-project', projectId: project.id, pinnedAt: 4000 });
+    const regularProjectTeam = createTeam({ id: 'team-regular-project', projectId: project.id });
+    const pinnedUnassignedTeam = createTeam({ id: 'team-pinned-top', pinnedAt: 3000 });
+    const regularUnassignedTeam = createTeam({ id: 'team-regular-top' });
+
+    const result = buildGroupedHistory(
+      [],
+      [project],
+      [pinnedProjectTeam, regularProjectTeam, pinnedUnassignedTeam, regularUnassignedTeam],
+      mockT
+    );
+
+    expect(result.pinnedTeams.map((team) => team.id)).toEqual(['team-pinned-project', 'team-pinned-top']);
+    expect(result.projectGroups[0]?.teams.map((team) => team.id)).toEqual(['team-regular-project']);
+    expect(result.unassignedTeams.map((team) => team.id)).toEqual(['team-regular-top']);
+  });
+
+  it('does not duplicate pinned teams or pinned conversations when their project is already pinned globally', () => {
+    const pinnedProject = createProject({ id: 'project-pinned', name: 'Pinned Project', pinnedAt: 5000 });
+    const pinnedTeam = createTeam({ id: 'team-pinned', projectId: pinnedProject.id, pinnedAt: 2000 });
+    const pinnedConversation = createConversation({
+      id: 'conversation-pinned',
+      projectId: pinnedProject.id,
+      extra: { pinned: true, pinnedAt: 3000 },
+    });
+
+    const result = buildGroupedHistory([pinnedConversation], [pinnedProject], [pinnedTeam], mockT);
+
+    expect(result.pinnedProjectGroups.map((group) => group.project.id)).toEqual(['project-pinned']);
+    expect(result.pinnedTeams).toEqual([]);
+    expect(result.pinnedConversations).toEqual([]);
+    expect(result.pinnedProjectGroups[0]?.teams.map((team) => team.id)).toEqual(['team-pinned']);
+    expect(result.pinnedProjectGroups[0]?.conversations.map((conversation) => conversation.id)).toEqual([
+      'conversation-pinned',
+    ]);
   });
 
   it('groups workspace chats only when customWorkspace is true', () => {

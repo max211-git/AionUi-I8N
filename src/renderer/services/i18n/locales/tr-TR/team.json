@@ -15,7 +15,10 @@
     "renameOk": "Kaydet",
     "renameCancel": "İptal",
     "renameSuccess": "Takım yeniden adlandırıldı",
-    "deleteSuccess": "Takım silindi"
+    "deleteSuccess": "Takım silindi",
+    "reorderModeEnter": "Reorder",
+    "reorderModeExit": "Done",
+    "reorderModeHint": "Drag teams to set their sidebar order."
   },
   "newAgent": "New Agent",
   "noMessages": "No messages yet.",

@@ -32,6 +32,7 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
     checked,
     selected,
     menuVisible,
+    suppressPinnedIndicator = false,
   } = props;
   const layout = useLayoutContext();
   const isMobile = layout?.isMobile ?? false;
@@ -178,7 +179,7 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
         </FlexFullContainer>
 
         {renderCompletionUnreadDot()}
-        {!batchMode && isPinned && !menuVisible && !isMobile && (
+        {!batchMode && isPinned && !suppressPinnedIndicator && !menuVisible && !isMobile && (
           <span className='absolute right-8px top-1/2 -translate-y-1/2 flex-center text-t-secondary pointer-events-none !collapsed-hidden group-hover:hidden'>
             <Pushpin theme='outline' size='16' />
           </span>

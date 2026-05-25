@@ -19,6 +19,9 @@ import {
 } from './historyPolicy';
 import { getConversationSortOrder } from './sortOrderHelpers';
 
+const isProjectPinned = (project: TProject): boolean => Boolean(project.pinnedAt);
+const isTeamPinned = (team: TTeam): boolean => Boolean(team.pinnedAt);
+
 export const isConversationPinned = (conversation: TChatConversation): boolean => {
   const extra = conversation.extra as { pinned?: boolean } | undefined;
   return Boolean(extra?.pinned);
@@ -137,14 +140,9 @@ const buildProjectGroup = (
 export const groupConversationsByWorkspace = (
   conversations: TChatConversation[],
   projects: TProject[],
-  teamsOrT: TTeam[] | ((key: string) => string),
-  maybeT?: (key: string) => string
+  teams: TTeam[],
+  t: (key: string) => string
 ): TimelineSection[] => {
-  const teams = Array.isArray(teamsOrT) ? teamsOrT : [];
-  const t = Array.isArray(teamsOrT) ? maybeT : teamsOrT;
-  if (!t) {
-    return [];
-  }
   const projectMap = new Map(projects.map((project) => [project.id, project]));
   const { allProjectIds, allProjectGroups, teamsByProject } = buildProjectConversationMaps(
     conversations,
@@ -239,24 +237,29 @@ export const groupConversationsByWorkspace = (
 export const buildGroupedHistory = (
   conversations: TChatConversation[],
   projects: TProject[],
-  teamsOrT: TTeam[] | ((key: string) => string),
-  maybeT?: (key: string) => string
+  teams: TTeam[],
+  t: (key: string) => string
 ): GroupedHistoryResult => {
-  const teams = Array.isArray(teamsOrT) ? teamsOrT : [];
-  const t = Array.isArray(teamsOrT) ? maybeT : teamsOrT;
-  if (!t) {
-    return {
-      pinnedConversations: [],
-      projectGroups: projects.map((project) => buildProjectGroup(project, [], [])),
-      unassignedTeams: teams,
-      timelineSections: [],
-    };
-  }
   // Filter out team-owned conversations; they are only visible via the Teams panel
   const visibleConversations = conversations.filter(shouldDisplayConversationInSidebar);
+  const pinnedProjectIds = new Set(projects.filter(isProjectPinned).map((project) => project.id));
+  const pinnedProjectGroups = sortProjectGroupsBySidebarPriority(
+    projects
+      .filter(isProjectPinned)
+      .map((project) =>
+        buildProjectGroup(
+          project,
+          visibleConversations.filter((conversation) => conversation.projectId === project.id),
+          teams.filter((team) => team.projectId === project.id)
+        )
+      )
+  );
+  const pinnedTeams = sortTeamsBySidebarPriority(
+    teams.filter((team) => isTeamPinned(team) && !pinnedProjectIds.has(team.projectId ?? ''))
+  );
 
   const pinnedConversations = visibleConversations
-    .filter((conversation) => isConversationPinned(conversation))
+    .filter((conversation) => isConversationPinned(conversation) && !pinnedProjectIds.has(conversation.projectId ?? ''))
     .toSorted((a, b) => {
       const orderA = getConversationSortOrder(a);
       const orderB = getConversationSortOrder(b);
@@ -269,19 +272,23 @@ export const buildGroupedHistory = (
   const normalConversations = visibleConversations.filter(
     (conversation) => !isConversationPinned(conversation) && !isCronJobConversation(conversation)
   );
-  const { allProjectGroups, teamsByProject } = buildProjectConversationMaps(normalConversations, projects, teams);
+  const unpinnedProjects = projects.filter((project) => !isProjectPinned(project));
+  const nonPinnedTeams = teams.filter((team) => !isTeamPinned(team));
+  const { allProjectGroups, teamsByProject } = buildProjectConversationMaps(normalConversations, unpinnedProjects, nonPinnedTeams);
 
   const projectGroups = sortProjectGroupsBySidebarPriority(
-    projects.map((project) =>
+    unpinnedProjects.map((project) =>
       buildProjectGroup(project, allProjectGroups.get(project.id) ?? [], teamsByProject.get(project.id) ?? [])
     )
   );
 
-  const unassignedTeams = sortTeamsBySidebarPriority(teams.filter((team) => !team.projectId));
+  const unassignedTeams = sortTeamsBySidebarPriority(nonPinnedTeams.filter((team) => !team.projectId));
   const nonProjectConversations = normalConversations.filter((conversation) => !conversation.projectId);
 
   return {
     pinnedConversations,
+    pinnedProjectGroups,
+    pinnedTeams,
     projectGroups,
     unassignedTeams,
     timelineSections: groupConversationsByWorkspace(nonProjectConversations, [], teams, t),

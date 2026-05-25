@@ -31,7 +31,10 @@
     "removeFromProject": "从项目中移除",
     "removeFromProjectSuccess": "团队已从项目中移除",
     "removeFromProjectFailed": "从项目中移除团队失败",
-    "assignProjectLoadFailed": "加载项目列表失败"
+    "assignProjectLoadFailed": "加载项目列表失败",
+    "reorderModeEnter": "Reorder",
+    "reorderModeExit": "Done",
+    "reorderModeHint": "Drag teams to set their sidebar order."
   },
   "newAgent": "新成员",
   "noMessages": "暂无消息。",

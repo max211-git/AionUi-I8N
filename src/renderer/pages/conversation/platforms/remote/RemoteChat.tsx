@@ -17,10 +17,11 @@ import RemoteSendBox from './RemoteSendBox';
 const RemoteChat: React.FC<{
   conversation_id: string;
   workspace: string;
+  projectId?: string;
   cronJobId?: string;
   hideSendBox?: boolean;
   emptySlot?: React.ReactNode;
-}> = ({ conversation_id, workspace, cronJobId, hideSendBox, emptySlot }) => {
+}> = ({ conversation_id, workspace, projectId, cronJobId, hideSendBox, emptySlot }) => {
   useMessageLstCache(conversation_id);
   const updateLocalImage = LocalImageView.useUpdateLocalImage();
   useEffect(() => {
@@ -28,7 +29,7 @@ const RemoteChat: React.FC<{
   }, [workspace]);
   return (
     <ConversationProvider
-      value={{ conversationId: conversation_id, workspace, type: 'remote', cronJobId, hideSendBox }}
+      value={{ conversationId: conversation_id, workspace, projectId, type: 'remote', cronJobId, hideSendBox }}
     >
       <div className='flex-1 flex flex-col px-20px min-h-0'>
         <FlexFullContainer>

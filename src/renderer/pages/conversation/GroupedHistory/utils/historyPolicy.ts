@@ -4,7 +4,8 @@ import { getActivityTime } from '@/renderer/utils/chat/timeline';
 
 import type { ProjectGroup } from '../types';
 
-const getTeamPinnedAt = (team: TTeam): number => team.pinnedAt ?? 0;
+const isTeamPinned = (team: TTeam): boolean => Boolean(team.pinnedAt);
+const getTeamSortOrder = (team: TTeam): number | undefined => team.sortOrder;
 
 export const isTeamOwnedConversation = (conversation: TChatConversation): boolean => {
   const extra = conversation.extra as { teamId?: string } | undefined;
@@ -16,9 +17,20 @@ export const shouldDisplayConversationInSidebar = (conversation: TChatConversati
 
 export const sortTeamsBySidebarPriority = (teams: TTeam[]): TTeam[] =>
   [...teams].toSorted((a, b) => {
-    const pinnedDiff = getTeamPinnedAt(b) - getTeamPinnedAt(a);
+    const pinnedDiff = Number(isTeamPinned(b)) - Number(isTeamPinned(a));
     if (pinnedDiff !== 0) {
       return pinnedDiff;
+    }
+    const orderA = getTeamSortOrder(a);
+    const orderB = getTeamSortOrder(b);
+    if (orderA !== undefined && orderB !== undefined) {
+      return orderA - orderB;
+    }
+    if (orderA !== undefined) {
+      return -1;
+    }
+    if (orderB !== undefined) {
+      return 1;
     }
     return b.updatedAt - a.updatedAt;
   });

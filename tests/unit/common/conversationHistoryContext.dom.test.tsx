@@ -54,6 +54,10 @@ const createConversation = (id: string): TChatConversation => ({
 
 const groupedHistory: GroupedHistoryResult = {
   pinnedConversations: [createConversation('pinned-1')],
+  pinnedProjectGroups: [],
+  pinnedTeams: [],
+  projectGroups: [],
+  unassignedTeams: [],
   timelineSections: [],
 };
 
@@ -79,6 +83,8 @@ describe('ConversationHistoryProvider', () => {
     mockedBuildGroupedHistory.mockReturnValue(groupedHistory);
     mockedUseConversationListSync.mockReturnValue({
       conversations: [createConversation('visible-1')],
+      projects: [],
+      teams: [],
       isConversationGenerating: () => false,
       hasCompletionUnread: () => false,
       clearCompletionUnread: () => {},

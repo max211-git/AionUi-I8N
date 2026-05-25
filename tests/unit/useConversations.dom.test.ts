@@ -38,12 +38,18 @@ const mockSetActiveConversation = vi.fn();
 vi.mock('../../src/renderer/hooks/context/ConversationHistoryContext', () => ({
   useConversationHistoryContext: () => ({
     conversations: [],
+    projects: [],
+    teams: [],
     isConversationGenerating: () => false,
     hasCompletionUnread: () => false,
     clearCompletionUnread: () => {},
     setActiveConversation: mockSetActiveConversation,
     groupedHistory: {
       pinnedConversations: [],
+      pinnedProjectGroups: [],
+      pinnedTeams: [],
+      projectGroups: [],
+      unassignedTeams: [],
       timelineSections: testState.sections,
     },
   }),
@@ -66,6 +72,10 @@ vi.mock('../../src/renderer/pages/conversation/GroupedHistory/hooks/useConversat
 vi.mock('../../src/renderer/pages/conversation/GroupedHistory/utils/groupingHelpers', () => ({
   buildGroupedHistory: () => ({
     pinnedConversations: [],
+    pinnedProjectGroups: [],
+    pinnedTeams: [],
+    projectGroups: [],
+    unassignedTeams: [],
     timelineSections: testState.sections,
   }),
 }));

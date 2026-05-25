@@ -37,6 +37,8 @@ export type TimelineSection = {
 
 export type GroupedHistoryResult = {
   pinnedConversations: TChatConversation[];
+  pinnedProjectGroups: ProjectGroup[];
+  pinnedTeams: TTeam[];
   projectGroups: ProjectGroup[];
   unassignedTeams: TTeam[];
   timelineSections: TimelineSection[];
@@ -63,6 +65,7 @@ export type ConversationRowProps = {
   checked: boolean;
   selected: boolean;
   menuVisible: boolean;
+  suppressPinnedIndicator?: boolean;
   onToggleChecked: (conversation: TChatConversation) => void;
   onConversationClick: (conversation: TChatConversation) => void;
   onOpenMenu: (conversation: TChatConversation) => void;

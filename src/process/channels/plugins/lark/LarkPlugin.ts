@@ -4,7 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as lark from '@larksuiteoapi/node-sdk';
+type LarkSdk = typeof import('@larksuiteoapi/node-sdk');
+const lark = require('@larksuiteoapi/node-sdk') as LarkSdk;
+type LarkClientInstance = InstanceType<LarkSdk['Client']>;
+type LarkWsClientInstance = InstanceType<LarkSdk['WSClient']>;
+type LarkEventDispatcherInstance = InstanceType<LarkSdk['EventDispatcher']>;
 
 import type { BotInfo, IChannelPluginConfig, IUnifiedOutgoingMessage, PluginType } from '../../types';
 import { BasePlugin } from '../BasePlugin';
@@ -23,9 +27,9 @@ const EVENT_CACHE_CLEANUP_INTERVAL = 60 * 1000; // 1 minute
 export class LarkPlugin extends BasePlugin {
   readonly type: PluginType = 'lark';
 
-  private client: lark.Client | null = null;
-  private wsClient: lark.WSClient | null = null;
-  private eventDispatcher: lark.EventDispatcher | null = null;
+  private client: LarkClientInstance | null = null;
+  private wsClient: LarkWsClientInstance | null = null;
+  private eventDispatcher: LarkEventDispatcherInstance | null = null;
   private botInfo: { appId: string; name?: string } | null = null;
   private isConnected: boolean = false;
 

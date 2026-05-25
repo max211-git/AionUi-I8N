@@ -7,16 +7,22 @@
 import { ipcBridge } from '@/common';
 import {
   PROJECT_MEMORY_ENTRY_TYPES,
-  type CreateProjectMemoryEntryInput,
-  type ProjectMemoryEntryType,
   type TProjectMemoryEntry,
   type TProjectMemorySettings,
 } from '@/common/projectMemory';
 import type { TProject } from '@/common/adapter/ipcBridge';
-import { Button, Empty, Input, Message, Modal, Select, Switch, Tag } from '@arco-design/web-react';
+import AionScrollArea from '@/renderer/components/base/AionScrollArea';
+import { Button, Empty, Input, Message, Modal, Switch, Tag } from '@arco-design/web-react';
 import { DeleteOne, EditOne, Plus } from '@icon-park/react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import ProjectMemoryEntryEditorModal from './projectMemory/ProjectMemoryEntryEditorModal';
+import {
+  createProjectMemoryEntryDraft,
+  draftFromProjectMemoryEntry,
+  type ProjectMemoryEntryDraft,
+} from './projectMemory/editorUtils';
+import styles from './ProjectMemoryModal.module.css';
 
 const DEFAULT_SETTINGS = (projectId: string): TProjectMemorySettings => ({
   projectId,
@@ -31,36 +37,6 @@ type ProjectMemoryModalProps = {
   onCancel: () => void;
 };
 
-type EntryDraft = {
-  name: string;
-  description: string;
-  type: ProjectMemoryEntryType;
-  content: string;
-  tags: string;
-};
-
-const EMPTY_DRAFT: EntryDraft = {
-  name: '',
-  description: '',
-  type: 'project',
-  content: '',
-  tags: '',
-};
-
-const parseTags = (value: string): string[] =>
-  value
-    .split(/[,，]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-const toDraft = (entry: TProjectMemoryEntry): EntryDraft => ({
-  name: entry.name,
-  description: entry.description ?? '',
-  type: entry.type,
-  content: entry.content,
-  tags: entry.tags.join(', '),
-});
-
 const ProjectMemoryModal: React.FC<ProjectMemoryModalProps> = ({ visible, project, onCancel }) => {
   const { t } = useTranslation();
   const [messageApi, messageContext] = Message.useMessage();
@@ -70,11 +46,18 @@ const ProjectMemoryModal: React.FC<ProjectMemoryModalProps> = ({ visible, projec
   const [settings, setSettings] = useState<TProjectMemorySettings | null>(null);
   const [summary, setSummary] = useState('');
   const [editorVisible, setEditorVisible] = useState(false);
-  const [editorSaving, setEditorSaving] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TProjectMemoryEntry | null>(null);
-  const [draft, setDraft] = useState<EntryDraft>(EMPTY_DRAFT);
+  const [editorInitialDraft, setEditorInitialDraft] = useState<ProjectMemoryEntryDraft>(createProjectMemoryEntryDraft());
+  const [searchQuery, setSearchQuery] = useState('');
+  const latestMessageApiRef = useRef(messageApi);
+  const latestTRef = useRef(t);
 
   const projectId = project?.id ?? '';
+
+  useEffect(() => {
+    latestMessageApiRef.current = messageApi;
+    latestTRef.current = t;
+  }, [messageApi, t]);
 
   const summaryPlaceholder = useMemo(() => {
     if (!settings?.enabled) {
@@ -103,14 +86,14 @@ const ProjectMemoryModal: React.FC<ProjectMemoryModalProps> = ({ visible, projec
       setSummary(nextSummary);
     } catch (error) {
       console.error('[ProjectMemoryModal] Failed to load project memory:', error);
-      await messageApi.error(t('conversation.history.projectMemoryLoadFailed'));
+      await latestMessageApiRef.current.error(latestTRef.current('conversation.history.projectMemoryLoadFailed'));
       setEntries([]);
       setSettings(DEFAULT_SETTINGS(projectId));
       setSummary('');
     } finally {
       setLoading(false);
     }
-  }, [messageApi, projectId, t]);
+  }, [projectId]);
 
   useEffect(() => {
     if (!visible || !projectId) {
@@ -125,9 +108,9 @@ const ProjectMemoryModal: React.FC<ProjectMemoryModalProps> = ({ visible, projec
       setSettings(null);
       setSummary('');
       setEditorVisible(false);
-      setEditorSaving(false);
       setEditingEntry(null);
-      setDraft(EMPTY_DRAFT);
+      setEditorInitialDraft(createProjectMemoryEntryDraft());
+      setSearchQuery('');
     }
   }, [visible]);
 
@@ -164,13 +147,13 @@ const ProjectMemoryModal: React.FC<ProjectMemoryModalProps> = ({ visible, projec
 
   const openCreateEditor = useCallback(() => {
     setEditingEntry(null);
-    setDraft(EMPTY_DRAFT);
+    setEditorInitialDraft(createProjectMemoryEntryDraft());
     setEditorVisible(true);
   }, []);
 
   const openEditEditor = useCallback((entry: TProjectMemoryEntry) => {
     setEditingEntry(entry);
-    setDraft(toDraft(entry));
+    setEditorInitialDraft(draftFromProjectMemoryEntry(entry));
     setEditorVisible(true);
   }, []);
 
@@ -206,51 +189,17 @@ const ProjectMemoryModal: React.FC<ProjectMemoryModalProps> = ({ visible, projec
     [loadData, messageApi, projectId, t]
   );
 
-  const handleSaveEntry = useCallback(async () => {
-    if (!projectId) {
-      return;
-    }
-    const input: CreateProjectMemoryEntryInput = {
-      name: draft.name.trim(),
-      description: draft.description.trim() || undefined,
-      type: draft.type,
-      content: draft.content.trim(),
-      tags: parseTags(draft.tags),
-    };
-
-    if (!input.name || !input.content) {
-      await messageApi.error(t('conversation.history.projectMemoryEntryValidation'));
-      return;
+  const filteredEntries = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return entries;
     }
 
-    setEditorSaving(true);
-    try {
-      if (editingEntry) {
-        const success = await ipcBridge.projectMemory.update.invoke({
-          projectId,
-          entryId: editingEntry.id,
-          updates: input,
-        });
-        if (!success) {
-          throw new Error('Failed to update project memory entry');
-        }
-        await messageApi.success(t('common.saveSuccess'));
-      } else {
-        await ipcBridge.projectMemory.create.invoke({ projectId, input });
-        await messageApi.success(t('common.createSuccess'));
-      }
-
-      setEditorVisible(false);
-      setEditingEntry(null);
-      setDraft(EMPTY_DRAFT);
-      await loadData();
-    } catch (error) {
-      console.error('[ProjectMemoryModal] Failed to save entry:', error);
-      await messageApi.error(editingEntry ? t('common.saveFailed') : t('common.failed'));
-    } finally {
-      setEditorSaving(false);
-    }
-  }, [draft, editingEntry, loadData, messageApi, projectId, t]);
+    return entries.filter((entry) => {
+      const haystacks = [entry.name, entry.content, entry.tags.join(' '), entry.description ?? ''];
+      return haystacks.some((value) => value.toLowerCase().includes(query));
+    });
+  }, [entries, searchQuery]);
 
   return (
     <>
@@ -260,177 +209,158 @@ const ProjectMemoryModal: React.FC<ProjectMemoryModalProps> = ({ visible, projec
         visible={visible}
         onCancel={onCancel}
         footer={null}
-        style={{ width: 760, borderRadius: '16px' }}
+        className={styles.projectMemoryModal}
+        style={{ width: 980, borderRadius: '16px' }}
         alignCenter
         unmountOnExit
         getPopupContainer={() => document.body}
       >
-        <div className='flex flex-col gap-16px'>
-          <div className='rounded-12px bg-fill-1 px-16px py-12px'>
-            <div className='text-14px font-medium text-t-primary'>
-              {t('conversation.history.projectMemoryForProject', { name: project?.name ?? '' })}
+        <div className={styles.modalContent}>
+          <div className='flex items-start justify-between gap-16px rounded-12px bg-fill-1 px-16px py-12px'>
+            <div className='min-w-0 flex-1'>
+              <div className='text-14px font-medium text-t-primary'>
+                {t('conversation.history.projectMemoryForProject', { name: project?.name ?? '' })}
+              </div>
+              <div className='mt-4px text-12px leading-18px text-t-secondary'>
+                {t('conversation.history.projectMemoryDescription')}
+              </div>
             </div>
-            <div className='mt-4px text-12px leading-18px text-t-secondary'>
-              {t('conversation.history.projectMemoryDescription')}
-            </div>
-          </div>
-
-          <div className='flex items-center justify-between gap-12px rounded-12px border border-solid border-line-2 px-16px py-12px'>
-            <div className='min-w-0'>
+            <div className='min-w-240px rounded-12px border border-solid border-line-2 bg-bg-1 px-16px py-12px'>
               <div className='text-14px font-medium text-t-primary'>
                 {t('conversation.history.projectMemoryEnableLabel')}
               </div>
               <div className='mt-4px text-12px leading-18px text-t-secondary'>
                 {t('conversation.history.projectMemoryEnableHint')}
               </div>
+              <div className='mt-12px flex justify-end'>
+                <Switch
+                  checked={settings?.enabled ?? false}
+                  loading={settingsSaving}
+                  disabled={!projectId || settingsSaving}
+                  onChange={(checked) => void handleToggleEnabled(checked)}
+                />
+              </div>
             </div>
-            <Switch
-              checked={settings?.enabled ?? false}
-              loading={settingsSaving}
-              disabled={!projectId || loading}
-              onChange={(checked) => void handleToggleEnabled(checked)}
-            />
           </div>
 
-          <div className='rounded-12px border border-solid border-line-2 px-16px py-14px'>
-            <div className='mb-10px flex items-center justify-between gap-12px'>
-              <div className='text-14px font-medium text-t-primary'>
-                {t('conversation.history.projectMemorySummaryTitle')}
+          <div className={styles.bodyLayout}>
+            <section className={styles.columnPanel}>
+              <div className={styles.panelHeader}>
+                <div className='text-14px font-medium text-t-primary'>
+                  {t('conversation.history.projectMemoryEntriesTitle')}
+                </div>
+                <Button type='primary' icon={<Plus theme='outline' size='14' />} onClick={openCreateEditor}>
+                  {t('conversation.history.projectMemoryAddEntry')}
+                </Button>
               </div>
-              <Button size='mini' type='text' loading={loading} onClick={() => void loadData()}>
-                {t('common.refresh')}
-              </Button>
-            </div>
-            <Input.TextArea
-              value={summaryPlaceholder}
-              readOnly
-              autoSize={{ minRows: 4, maxRows: 10 }}
-              className='project-memory-summary'
-            />
-          </div>
 
-          <div className='rounded-12px border border-solid border-line-2 px-16px py-14px'>
-            <div className='mb-12px flex items-center justify-between gap-12px'>
-              <div className='text-14px font-medium text-t-primary'>
-                {t('conversation.history.projectMemoryEntriesTitle')}
-              </div>
-              <Button type='primary' icon={<Plus theme='outline' size='14' />} onClick={openCreateEditor}>
-                {t('conversation.history.projectMemoryAddEntry')}
-              </Button>
-            </div>
+              {entries.length > 0 ? (
+                <Input
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder={t('conversation.history.projectMemorySearchPlaceholder')}
+                />
+              ) : null}
 
-            {entries.length === 0 ? (
-              <Empty description={t('conversation.history.projectMemoryEmpty')} />
-            ) : (
-              <div className='flex max-h-420px flex-col gap-10px overflow-y-auto pr-2px'>
-                {entries.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className='rounded-12px border border-solid border-line-2 bg-fill-1 px-14px py-12px'
-                  >
-                    <div className='flex items-start justify-between gap-12px'>
-                      <div className='min-w-0 flex-1'>
-                        <div className='flex flex-wrap items-center gap-8px'>
-                          <span className='min-w-0 truncate text-14px font-medium text-t-primary'>{entry.name}</span>
-                          <Tag>
-                            {t(
-                              `conversation.history.projectMemoryType${entry.type[0].toUpperCase()}${entry.type.slice(1)}` as const
-                            )}
-                          </Tag>
+              {entries.length === 0 ? (
+                <div className='flex flex-1 items-center justify-center'>
+                  <Empty description={t('conversation.history.projectMemoryEmpty')} />
+                </div>
+              ) : filteredEntries.length === 0 ? (
+                <div className='mt-12px flex flex-1 items-center justify-center'>
+                  <Empty description={t('conversation.history.projectMemorySearchEmpty')} />
+                </div>
+              ) : (
+                <AionScrollArea className={styles.entriesScrollArea}>
+                  <div className='flex flex-col gap-10px pr-6px'>
+                    {filteredEntries.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className='rounded-12px border border-solid border-line-2 bg-fill-1 px-14px py-12px'
+                      >
+                        <div className='flex items-start justify-between gap-12px'>
+                          <div className='min-w-0 flex-1'>
+                            <div className='flex flex-wrap items-center gap-8px'>
+                              <span className='min-w-0 truncate text-14px font-medium text-t-primary'>{entry.name}</span>
+                              <Tag>
+                                {t(
+                                  `conversation.history.projectMemoryType${entry.type[0].toUpperCase()}${entry.type.slice(1)}` as const
+                                )}
+                              </Tag>
+                            </div>
+                            {entry.description ? (
+                              <div className='mt-4px text-12px leading-18px text-t-secondary'>{entry.description}</div>
+                            ) : null}
+                          </div>
+                          <div className='flex items-center gap-4px'>
+                            <Button
+                              size='mini'
+                              type='text'
+                              icon={<EditOne theme='outline' size='14' />}
+                              onClick={() => openEditEditor(entry)}
+                            >
+                              {t('common.edit')}
+                            </Button>
+                            <Button
+                              size='mini'
+                              type='text'
+                              status='danger'
+                              icon={<DeleteOne theme='outline' size='14' />}
+                              onClick={() => handleDeleteEntry(entry)}
+                            >
+                              {t('common.delete')}
+                            </Button>
+                          </div>
                         </div>
-                        {entry.description ? (
-                          <div className='mt-4px text-12px leading-18px text-t-secondary'>{entry.description}</div>
+                        <div className='mt-8px whitespace-pre-wrap text-12px leading-18px text-t-primary'>
+                          {entry.content}
+                        </div>
+                        {entry.tags.length > 0 ? (
+                          <div className='mt-8px flex flex-wrap gap-6px'>
+                            {entry.tags.map((tag) => (
+                              <Tag key={`${entry.id}-${tag}`}>{tag}</Tag>
+                            ))}
+                          </div>
                         ) : null}
                       </div>
-                      <div className='flex items-center gap-4px'>
-                        <Button
-                          size='mini'
-                          type='text'
-                          icon={<EditOne theme='outline' size='14' />}
-                          onClick={() => openEditEditor(entry)}
-                        >
-                          {t('common.edit')}
-                        </Button>
-                        <Button
-                          size='mini'
-                          type='text'
-                          status='danger'
-                          icon={<DeleteOne theme='outline' size='14' />}
-                          onClick={() => handleDeleteEntry(entry)}
-                        >
-                          {t('common.delete')}
-                        </Button>
-                      </div>
-                    </div>
-                    <div className='mt-8px whitespace-pre-wrap text-12px leading-18px text-t-primary'>
-                      {entry.content}
-                    </div>
-                    {entry.tags.length > 0 ? (
-                      <div className='mt-8px flex flex-wrap gap-6px'>
-                        {entry.tags.map((tag) => (
-                          <Tag key={`${entry.id}-${tag}`}>{tag}</Tag>
-                        ))}
-                      </div>
-                    ) : null}
+                    ))}
                   </div>
-                ))}
+                </AionScrollArea>
+              )}
+            </section>
+
+            <section className={styles.columnPanel}>
+              <div className={styles.panelHeader}>
+                <div className='text-14px font-medium text-t-primary'>
+                  {t('conversation.history.projectMemorySummaryTitle')}
+                </div>
+                <Button size='mini' type='text' loading={loading} onClick={() => void loadData()}>
+                  {t('common.refresh')}
+                </Button>
               </div>
-            )}
+
+              <div className={styles.summaryPanel}>
+                <AionScrollArea className='min-h-0 flex-1 whitespace-pre-wrap text-12px leading-20px text-t-primary'>
+                  {summaryPlaceholder}
+                </AionScrollArea>
+              </div>
+            </section>
           </div>
         </div>
       </Modal>
 
-      <Modal
-        title={
-          editingEntry
-            ? t('conversation.history.projectMemoryEditEntry')
-            : t('conversation.history.projectMemoryAddEntry')
-        }
+      <ProjectMemoryEntryEditorModal
         visible={editorVisible}
+        projectId={projectId}
+        editingEntry={editingEntry}
+        initialDraft={editorInitialDraft}
         onCancel={() => {
           setEditorVisible(false);
           setEditingEntry(null);
-          setDraft(EMPTY_DRAFT);
+          setEditorInitialDraft(createProjectMemoryEntryDraft());
         }}
-        onOk={() => void handleSaveEntry()}
-        okText={editingEntry ? t('common.save') : t('common.create')}
-        cancelText={t('common.cancel')}
-        confirmLoading={editorSaving}
-        okButtonProps={{ disabled: !draft.name.trim() || !draft.content.trim() }}
-        style={{ borderRadius: '16px' }}
-        alignCenter
-        unmountOnExit
-        getPopupContainer={() => document.body}
-      >
-        <div className='flex flex-col gap-12px'>
-          <Input
-            value={draft.name}
-            onChange={(value) => setDraft((current) => ({ ...current, name: value }))}
-            placeholder={t('conversation.history.projectMemoryEntryNamePlaceholder')}
-          />
-          <Select
-            value={draft.type}
-            options={entryTypeOptions}
-            onChange={(value) => setDraft((current) => ({ ...current, type: value as ProjectMemoryEntryType }))}
-          />
-          <Input
-            value={draft.description}
-            onChange={(value) => setDraft((current) => ({ ...current, description: value }))}
-            placeholder={t('conversation.history.projectMemoryEntryDescriptionPlaceholder')}
-          />
-          <Input.TextArea
-            value={draft.content}
-            onChange={(value) => setDraft((current) => ({ ...current, content: value }))}
-            placeholder={t('conversation.history.projectMemoryEntryContentPlaceholder')}
-            autoSize={{ minRows: 5, maxRows: 12 }}
-          />
-          <Input
-            value={draft.tags}
-            onChange={(value) => setDraft((current) => ({ ...current, tags: value }))}
-            placeholder={t('conversation.history.projectMemoryEntryTagsPlaceholder')}
-          />
-        </div>
-      </Modal>
+        onSaved={loadData}
+      />
     </>
   );
 };

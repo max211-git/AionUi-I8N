@@ -133,6 +133,7 @@ export function initSchema(db: ISqliteDriver): void {
     lead_agent_id TEXT NOT NULL DEFAULT '',
     agents TEXT NOT NULL DEFAULT '[]',
     pinned_at INTEGER,
+    sort_order INTEGER,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

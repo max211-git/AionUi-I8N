@@ -47,6 +47,7 @@ const createTeam = (overrides: Partial<TTeam> = {}): TTeam => ({
   createdAt: overrides.createdAt ?? 1000,
   updatedAt: overrides.updatedAt ?? 1000,
   pinnedAt: overrides.pinnedAt,
+  sortOrder: overrides.sortOrder,
 });
 
 const createProjectGroup = (overrides: {
@@ -84,6 +85,16 @@ describe('history sidebar policy', () => {
     ]);
 
     expect(sortedTeams.map((team) => team.id)).toEqual(['pinned-newer', 'pinned-older', 'unpinned-newer']);
+  });
+
+  it('prefers team sortOrder before updatedAt within the same pinning cohort', () => {
+    const sortedTeams = sortTeamsBySidebarPriority([
+      createTeam({ id: 'team-b', pinnedAt: 4000, updatedAt: 5000, sortOrder: 2000 }),
+      createTeam({ id: 'team-a', pinnedAt: 3000, updatedAt: 1000, sortOrder: 1000 }),
+      createTeam({ id: 'team-c', pinnedAt: 5000, updatedAt: 9000 }),
+    ]);
+
+    expect(sortedTeams.map((team) => team.id)).toEqual(['team-a', 'team-b', 'team-c']);
   });
 
   it('prefers pinned projects, then latest project activity, when ordering project cards', () => {

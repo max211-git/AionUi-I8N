@@ -793,6 +793,14 @@ export class TeamSessionService {
     ipcBridge.project.listChanged.emit({ action: 'updated', projectId: team.projectId ?? '' });
   }
 
+  async updateSortOrder(teamId: string, sortOrder?: number): Promise<void> {
+    const team = await this.repo.findById(teamId);
+    if (!team) throw new Error(`Team "${teamId}" not found`);
+    await this.repo.update(teamId, { sortOrder, updatedAt: Date.now() });
+    ipcBridge.team.listChanged.emit({ teamId, action: 'project_updated' });
+    ipcBridge.project.listChanged.emit({ action: 'updated', projectId: team.projectId ?? '' });
+  }
+
   async removeAgent(teamId: string, slotId: string): Promise<void> {
     const team = await this.repo.findById(teamId);
     if (!team) throw new Error(`Team "${teamId}" not found`);

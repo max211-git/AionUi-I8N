@@ -23,6 +23,7 @@ const GeminiChat: React.FC<{
   workspace: string;
   modelSelection: GeminiModelSelection;
   cronJobId?: string;
+  projectId?: string;
   hideSendBox?: boolean;
   teamId?: string;
   agentSlotId?: string;
@@ -33,6 +34,7 @@ const GeminiChat: React.FC<{
   workspace,
   modelSelection,
   cronJobId,
+  projectId,
   hideSendBox,
   teamId,
   agentSlotId,
@@ -45,8 +47,8 @@ const GeminiChat: React.FC<{
     updateLocalImage({ root: workspace });
   }, [workspace]);
   const conversationValue = useMemo<ConversationContextValue>(() => {
-    return { conversationId: conversation_id, workspace, type: 'gemini', cronJobId, hideSendBox };
-  }, [conversation_id, workspace, cronJobId, hideSendBox]);
+    return { conversationId: conversation_id, workspace, projectId, type: 'gemini', cronJobId, hideSendBox };
+  }, [conversation_id, workspace, projectId, cronJobId, hideSendBox]);
 
   return (
     <ConversationProvider value={conversationValue}>
