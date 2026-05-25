@@ -12,6 +12,11 @@ import { getWorkspaceDisplayName } from '@/renderer/utils/workspace/workspace';
 import { getWorkspaceUpdateTime } from '@/renderer/utils/workspace/workspaceHistory';
 
 import type { GroupedHistoryResult, ProjectGroup, TimelineItem, TimelineSection, WorkspaceGroup } from '../types';
+import {
+  shouldDisplayConversationInSidebar,
+  sortProjectGroupsBySidebarPriority,
+  sortTeamsBySidebarPriority,
+} from './historyPolicy';
 import { getConversationSortOrder } from './sortOrderHelpers';
 
 export const isConversationPinned = (conversation: TChatConversation): boolean => {
@@ -125,14 +130,7 @@ const buildProjectGroup = (
     conversations: sortedConvs,
     chatConversations,
     workspaceGroups,
-    teams: [...teams].toSorted((a, b) => {
-      const pinnedA = a.pinnedAt ?? 0;
-      const pinnedB = b.pinnedAt ?? 0;
-      if (pinnedA !== pinnedB) {
-        return pinnedB - pinnedA;
-      }
-      return b.updatedAt - a.updatedAt;
-    }),
+    teams: sortTeamsBySidebarPriority(teams),
   };
 };
 
@@ -238,12 +236,6 @@ export const groupConversationsByWorkspace = (
   ];
 };
 
-/** Check whether a conversation belongs to a team (should be hidden from sidebar). */
-const isTeamConversation = (conversation: TChatConversation): boolean => {
-  const extra = conversation.extra as { teamId?: string } | undefined;
-  return Boolean(extra?.teamId);
-};
-
 export const buildGroupedHistory = (
   conversations: TChatConversation[],
   projects: TProject[],
@@ -261,7 +253,7 @@ export const buildGroupedHistory = (
     };
   }
   // Filter out team-owned conversations; they are only visible via the Teams panel
-  const visibleConversations = conversations.filter((conv) => !isTeamConversation(conv));
+  const visibleConversations = conversations.filter(shouldDisplayConversationInSidebar);
 
   const pinnedConversations = visibleConversations
     .filter((conversation) => isConversationPinned(conversation))
@@ -279,31 +271,13 @@ export const buildGroupedHistory = (
   );
   const { allProjectGroups, teamsByProject } = buildProjectConversationMaps(normalConversations, projects, teams);
 
-  const projectGroups = projects
-    .map((project) =>
+  const projectGroups = sortProjectGroupsBySidebarPriority(
+    projects.map((project) =>
       buildProjectGroup(project, allProjectGroups.get(project.id) ?? [], teamsByProject.get(project.id) ?? [])
     )
-    .toSorted((a, b) => {
-      const pinnedA = a.project.pinnedAt ?? 0;
-      const pinnedB = b.project.pinnedAt ?? 0;
-      if (pinnedA !== pinnedB) {
-        return pinnedB - pinnedA;
-      }
-      const latestA = Math.max(getLatestActivityTime(a.conversations), a.teams[0]?.updatedAt ?? 0, a.project.updatedAt);
-      const latestB = Math.max(getLatestActivityTime(b.conversations), b.teams[0]?.updatedAt ?? 0, b.project.updatedAt);
-      return latestB - latestA;
-    });
+  );
 
-  const unassignedTeams = teams
-    .filter((team) => !team.projectId)
-    .toSorted((a, b) => {
-      const pinnedA = a.pinnedAt ?? 0;
-      const pinnedB = b.pinnedAt ?? 0;
-      if (pinnedA !== pinnedB) {
-        return pinnedB - pinnedA;
-      }
-      return b.updatedAt - a.updatedAt;
-    });
+  const unassignedTeams = sortTeamsBySidebarPriority(teams.filter((team) => !team.projectId));
   const nonProjectConversations = normalConversations.filter((conversation) => !conversation.projectId);
 
   return {

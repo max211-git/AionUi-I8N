@@ -20,6 +20,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
 import { initMainAdapterWithWindow } from './common/adapter/main';
+import { FORK_REPOSITORY } from './common/config/product';
 import { APP_NAME } from './common/platform';
 import { ipcBridge } from './common';
 import { AION_ASSET_PROTOCOL } from '@process/extensions';
@@ -397,7 +398,7 @@ const handleAppReady = async (): Promise<void> => {
     applicationVersion: app.getVersion(),
     version: app.getVersion(),
     copyright: 'AionUI+ is developed by Johnny Crivello and I8N Labs, Inc.; based on AionUi by iOfficeAI',
-    website: 'https://github.com/iOfficeAI/AionUi',
+    website: FORK_REPOSITORY.repoUrl,
   });
   const t0 = performance.now();
   const mark = (label: string) => console.log(`[AionUi:ready] ${label} +${Math.round(performance.now() - t0)}ms`);

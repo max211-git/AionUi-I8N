@@ -23,7 +23,6 @@ import {
 } from '@dnd-kit/core';
 import {
   SortableContext,
-  arrayMove,
   useSortable,
   verticalListSortingStrategy,
   sortableKeyboardCoordinates,
@@ -48,6 +47,8 @@ import { useDragAndDrop } from './hooks/useDragAndDrop';
 import { useExport } from './hooks/useExport';
 import { refreshConversationListSync } from './hooks/useConversationListSync';
 import type { ConversationRowProps, ProjectGroup, WorkspaceGroupedHistoryProps } from './types';
+import { buildProjectReorderPlan, sortProjectGroupsByManualOrder } from './utils/projectOrderPolicy';
+import { getSidebarSectionVisibility } from './utils/sectionVisibility';
 
 const STICKY_SECTION_HEADER_CLASS_NAME =
   'sticky top-0 z-10 mx-8px mb-2px rounded-10px border border-solid border-[rgba(var(--primary-6),0.12)] bg-[rgba(var(--primary-6),0.08)] px-12px py-8px backdrop-blur-8px';
@@ -153,26 +154,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   } = useConversations();
 
   const orderedProjectGroups = useMemo(() => {
-    const orderMap = new Map(manualProjectOrder.map((projectId, index) => [projectId, index]));
-    return [...projectGroups].toSorted((a, b) => {
-      const aPinned = a.project.pinnedAt ? 1 : 0;
-      const bPinned = b.project.pinnedAt ? 1 : 0;
-      if (aPinned !== bPinned) {
-        return bPinned - aPinned;
-      }
-      const aIndex = orderMap.get(a.project.id);
-      const bIndex = orderMap.get(b.project.id);
-      if (aIndex !== undefined && bIndex !== undefined) {
-        return aIndex - bIndex;
-      }
-      if (aIndex !== undefined) {
-        return -1;
-      }
-      if (bIndex !== undefined) {
-        return 1;
-      }
-      return 0;
-    });
+    return sortProjectGroupsByManualOrder(projectGroups, manualProjectOrder);
   }, [manualProjectOrder, projectGroups]);
 
   const handleProjectDragStart = useCallback(
@@ -195,41 +177,22 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
         return;
       }
 
-      const activeGroup = orderedProjectGroups.find((group) => group.project.id === active.id);
-      const overGroup = orderedProjectGroups.find((group) => group.project.id === over.id);
-      if (!activeGroup || !overGroup) {
+      const reorderPlan = buildProjectReorderPlan(orderedProjectGroups, String(active.id), String(over.id));
+      if (!reorderPlan) {
         return;
       }
-
-      const activePinned = Boolean(activeGroup.project.pinnedAt);
-      const overPinned = Boolean(overGroup.project.pinnedAt);
-      if (activePinned !== overPinned) {
-        return;
-      }
-
-      const relevantIds = orderedProjectGroups
-        .filter((group) => Boolean(group.project.pinnedAt) === activePinned)
-        .map((group) => group.project.id);
-      const oldIndex = relevantIds.indexOf(String(active.id));
-      const newIndex = relevantIds.indexOf(String(over.id));
-      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
-        return;
-      }
-
-      const nextRelevantIds = arrayMove(relevantIds, oldIndex, newIndex);
-      const baseSortOrder = activePinned ? 0 : 1000;
 
       setManualProjectOrder((prev) => {
-        const otherIds = prev.filter((projectId) => !relevantIds.includes(projectId));
-        return [...otherIds, ...nextRelevantIds];
+        const otherIds = prev.filter((projectId) => !reorderPlan.relevantIds.includes(projectId));
+        return [...otherIds, ...reorderPlan.nextRelevantIds];
       });
 
       await Promise.all(
-        nextRelevantIds.map((projectId, index) =>
+        reorderPlan.nextRelevantIds.map((projectId, index) =>
           ipcBridge.project.update.invoke({
             id: projectId,
             updates: {
-              sortOrder: baseSortOrder + index,
+              sortOrder: reorderPlan.baseSortOrder + index,
             },
           })
         )
@@ -961,40 +924,12 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
 
   // Collect all sortable IDs for the pinned section
   const pinnedIds = useMemo(() => pinnedConversations.map((c) => c.id), [pinnedConversations]);
-
-  if (timelineSections.length === 0 && pinnedConversations.length === 0 && projectGroups.length === 0) {
-    return (
-      <>
-        <Modal
-          title={t('conversation.history.createProject')}
-          visible={projectModalVisible}
-          onOk={() => void handleCreateProject()}
-          onCancel={() => {
-            setProjectModalVisible(false);
-            setProjectName('');
-            setProjectRootPath('');
-          }}
-          confirmLoading={projectSaving}
-        >
-          <div className='flex flex-col gap-12px'>
-            <Input
-              value={projectName}
-              onChange={setProjectName}
-              placeholder={t('conversation.history.projectNamePlaceholder')}
-            />
-            <Input
-              value={projectRootPath}
-              onChange={setProjectRootPath}
-              placeholder={t('conversation.history.projectFolderPlaceholder')}
-            />
-          </div>
-        </Modal>
-        <div className='py-48px flex-center'>
-          <Empty description={t('conversation.history.noHistory')} />
-        </div>
-      </>
-    );
-  }
+  const sectionVisibility = getSidebarSectionVisibility({
+    pinnedConversationCount: pinnedConversations.length,
+    projectGroupCount: projectGroups.length,
+    unassignedTeamCount: unassignedTeams.length,
+    timelineSectionCount: timelineSections.length,
+  });
 
   return (
     <>
@@ -1266,7 +1201,8 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
           </DragOverlay>
         </DndContext>
 
-        <div className='mb-8px min-w-0'>
+        {sectionVisibility.showProjectsSection && (
+          <div className='mb-8px min-w-0'>
             {!collapsed && (
               <div className={classNames('flex items-center gap-4px', STICKY_SECTION_HEADER_CLASS_NAME)}>
                 <Button
@@ -1278,23 +1214,23 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                     {t('conversation.history.projectsSection')}
                   </span>
                 </Button>
-                {projectGroups.length > 0 && !collapsedSections.has('projects') && (
-                      <Button
-                        type='text'
-                        size='mini'
-                        className={classNames(
-                          '!h-26px !rounded-6px !px-8px !text-12px font-medium',
-                          isProjectReorderMode
-                            ? '!bg-[rgba(var(--primary-6),0.14)] !text-[rgb(var(--primary-6))] hover:!bg-[rgba(var(--primary-6),0.2)]'
-                            : '!text-t-secondary hover:!bg-fill-3 hover:!text-t-primary'
-                        )}
-                        onClick={() => setIsProjectReorderMode((value) => !value)}
-                      >
-                        {isProjectReorderMode
-                          ? t('conversation.history.projectReorderModeExit')
-                          : t('conversation.history.projectReorderModeEnter')}
-                      </Button>
+                {sectionVisibility.showProjectReorderControl && !collapsedSections.has('projects') && (
+                  <Button
+                    type='text'
+                    size='mini'
+                    className={classNames(
+                      '!h-26px !rounded-6px !px-8px !text-12px font-medium',
+                      isProjectReorderMode
+                        ? '!bg-[rgba(var(--primary-6),0.14)] !text-[rgb(var(--primary-6))] hover:!bg-[rgba(var(--primary-6),0.2)]'
+                        : '!text-t-secondary hover:!bg-fill-3 hover:!text-t-primary'
                     )}
+                    onClick={() => setIsProjectReorderMode((value) => !value)}
+                  >
+                    {isProjectReorderMode
+                      ? t('conversation.history.projectReorderModeExit')
+                      : t('conversation.history.projectReorderModeEnter')}
+                  </Button>
+                )}
                 {!isProjectReorderMode && (
                   <Button
                     type='text'
@@ -1371,43 +1307,54 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
               </>
             )}
           </div>
+        )}
 
-        <div className='mb-8px min-w-0'>
-          {!collapsed && (
-            <div className={classNames('flex items-center', STICKY_SECTION_HEADER_CLASS_NAME)}>
-              <Button
-                type='text'
-                className='!h-auto !flex-1 !justify-start !bg-transparent !p-0 !text-left hover:!bg-transparent'
-                onClick={() => toggleSection('teams')}
-              >
-                <span className='text-13px text-t-secondary font-bold leading-20px'>{t('team.sider.title')}</span>
-              </Button>
-              {!isProjectReorderMode && (
+        {sectionVisibility.showTeamsSection && (
+          <div className='mb-8px min-w-0'>
+            {!collapsed && (
+              <div className={classNames('flex items-center', STICKY_SECTION_HEADER_CLASS_NAME)}>
+                <Button
+                  type='text'
+                  className='!h-auto !flex-1 !justify-start !bg-transparent !p-0 !text-left hover:!bg-transparent'
+                  onClick={() => toggleSection('teams')}
+                >
+                  <span className='text-13px text-t-secondary font-bold leading-20px'>{t('team.sider.title')}</span>
+                </Button>
+                {!isProjectReorderMode && (
+                  <Button
+                    type='text'
+                    size='mini'
+                    className='!ml-auto !mr-4px !h-26px !w-26px !min-w-26px !rounded-6px !p-0 !text-[rgb(var(--warning-6))] hover:!bg-[rgba(var(--warning-6),0.14)] hover:!text-[rgb(var(--warning-7))]'
+                    onClick={() => setTeamCreateProject(topLevelTeamDraftProject)}
+                  >
+                    <Plus theme='outline' size='16' />
+                  </Button>
+                )}
                 <Button
                   type='text'
                   size='mini'
-                  className='!ml-auto !mr-4px !h-26px !w-26px !min-w-26px !rounded-6px !p-0 !text-[rgb(var(--warning-6))] hover:!bg-[rgba(var(--warning-6),0.14)] hover:!text-[rgb(var(--warning-7))]'
-                  onClick={() => setTeamCreateProject(topLevelTeamDraftProject)}
+                  className='!h-24px !w-24px !min-w-24px !p-0 text-t-secondary hover:!bg-fill-3 hover:!text-t-primary'
+                  onClick={() => toggleSection('teams')}
                 >
-                  <Plus theme='outline' size='16' />
+                  {collapsedSections.has('teams') ? (
+                    <Right theme='outline' size={12} />
+                  ) : (
+                    <Down theme='outline' size={12} />
+                  )}
                 </Button>
-              )}
-              <Button
-                type='text'
-                size='mini'
-                className='!h-24px !w-24px !min-w-24px !p-0 text-t-secondary hover:!bg-fill-3 hover:!text-t-primary'
-                onClick={() => toggleSection('teams')}
-              >
-                {collapsedSections.has('teams') ? (
-                  <Right theme='outline' size={12} />
-                ) : (
-                  <Down theme='outline' size={12} />
-                )}
-              </Button>
-            </div>
-          )}
-          {!collapsedSections.has('teams') && unassignedTeams.length > 0 && unassignedTeams.map((team) => renderTeam(team))}
-        </div>
+              </div>
+            )}
+            {!collapsedSections.has('teams') &&
+              sectionVisibility.showUnassignedTeamsList &&
+              unassignedTeams.map((team) => renderTeam(team))}
+          </div>
+        )}
+
+        {sectionVisibility.showEmptyHistoryState && (
+          <div className='py-48px flex-center'>
+            <Empty description={t('conversation.history.noHistory')} />
+          </div>
+        )}
 
         {timelineSections.map((section) => (
           <div key={section.timeline} className='mb-8px min-w-0'>

@@ -29,6 +29,7 @@ export default defineConfig({
           include: [
             'tests/unit/**/*.test.ts',
             'tests/unit/**/test_*.ts',
+            'tests/contract/**/*.test.ts',
             'tests/integration/**/*.test.ts',
             'tests/regression/**/*.test.ts',
           ],
@@ -42,7 +43,12 @@ export default defineConfig({
         test: {
           name: 'dom',
           environment: 'jsdom',
-          include: ['tests/unit/**/*.dom.test.ts', 'tests/unit/**/*.dom.test.tsx'],
+          include: [
+            'tests/unit/**/*.dom.test.ts',
+            'tests/unit/**/*.dom.test.tsx',
+            'tests/contract/**/*.dom.test.ts',
+            'tests/contract/**/*.dom.test.tsx',
+          ],
           setupFiles: ['./tests/vitest.dom.setup.ts'],
         },
       },
