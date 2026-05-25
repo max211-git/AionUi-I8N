@@ -72,6 +72,38 @@ export function initSchema(db: ISqliteDriver): void {
   db.exec('CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at)');
 
+  db.exec(`CREATE TABLE IF NOT EXISTS project_memory_settings (
+    project_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_project_memory_settings_user_id ON project_memory_settings(user_id)');
+
+  db.exec(`CREATE TABLE IF NOT EXISTS project_memory_entries (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    type TEXT NOT NULL,
+    content TEXT NOT NULL,
+    source TEXT NOT NULL,
+    status TEXT NOT NULL,
+    tags TEXT NOT NULL DEFAULT '[]',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_project_memory_entries_project_id ON project_memory_entries(project_id)');
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_project_memory_entries_project_updated ON project_memory_entries(project_id, updated_at DESC)'
+  );
+
   // Messages table (消息表 - 存储TMessage)
   db.exec(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
@@ -168,4 +200,4 @@ export function setDatabaseVersion(db: ISqliteDriver, version: number): void {
  * Current database schema version
  * Update this when adding new migrations in migrations.ts
  */
-export const CURRENT_DB_VERSION = 30;
+export const CURRENT_DB_VERSION = 31;

@@ -1301,6 +1301,53 @@ const migration_v30: IMigration = {
   },
 };
 
+const migration_v31: IMigration = {
+  version: 31,
+  name: 'Add project memory tables',
+  up: (db) => {
+    db.exec(`CREATE TABLE IF NOT EXISTS project_memory_settings (
+      project_id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_project_memory_settings_user_id ON project_memory_settings(user_id)');
+
+    db.exec(`CREATE TABLE IF NOT EXISTS project_memory_entries (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      type TEXT NOT NULL,
+      content TEXT NOT NULL,
+      source TEXT NOT NULL,
+      status TEXT NOT NULL,
+      tags TEXT NOT NULL DEFAULT '[]',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_project_memory_entries_project_id ON project_memory_entries(project_id)');
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_project_memory_entries_project_updated ON project_memory_entries(project_id, updated_at DESC)'
+    );
+    console.log('[Migration v31] Added project memory tables');
+  },
+  down: (db) => {
+    db.exec('DROP INDEX IF EXISTS idx_project_memory_entries_project_updated');
+    db.exec('DROP INDEX IF EXISTS idx_project_memory_entries_project_id');
+    db.exec('DROP TABLE IF EXISTS project_memory_entries');
+    db.exec('DROP INDEX IF EXISTS idx_project_memory_settings_user_id');
+    db.exec('DROP TABLE IF EXISTS project_memory_settings');
+    console.log('[Migration v31] Rolled back: Removed project memory tables');
+  },
+};
+
 /**
  * All migrations in order
  */
@@ -1311,6 +1358,7 @@ export const ALL_MIGRATIONS: IMigration[] = [
   migration_v13, migration_v14, migration_v15, migration_v16, migration_v17, migration_v18,
   migration_v19, migration_v20, migration_v21, migration_v22, migration_v23, migration_v24,
   migration_v25, migration_v26, migration_v27, migration_v28, migration_v29, migration_v30,
+  migration_v31,
 ];
 
 /**

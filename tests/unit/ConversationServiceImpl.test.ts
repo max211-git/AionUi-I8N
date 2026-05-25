@@ -6,6 +6,8 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { IConversationRepository } from '../../src/process/services/database/IConversationRepository';
+import type { IProjectRepository } from '../../src/process/services/database/IProjectRepository';
+import type { IProjectMemoryService } from '../../src/process/services/projectMemory';
 
 vi.mock('electron', () => ({ app: { getPath: vi.fn(() => '/tmp'), isPackaged: false } }));
 vi.mock('../../src/process/utils/initStorage', () => ({ ProcessChat: { get: vi.fn(async () => []) } }));
@@ -42,6 +44,37 @@ function makeRepo(overrides: Partial<IConversationRepository> = {}): IConversati
     listAllConversations: vi.fn(() => []),
     searchMessages: vi.fn(async () => ({ data: [], total: 0, hasMore: false })),
     getConversationsByCronJob: vi.fn(async () => []),
+    ...overrides,
+  };
+}
+
+function makeProjectRepo(overrides: Partial<IProjectRepository> = {}): IProjectRepository {
+  return {
+    list: vi.fn(),
+    get: vi.fn(async () => ({
+      id: 'project-1',
+      name: 'Project',
+      createdAt: 1000,
+      updatedAt: 1000,
+    })),
+    create: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
+    clearProjectFromConversations: vi.fn(),
+    ...overrides,
+  };
+}
+
+function makeProjectMemoryService(overrides: Partial<IProjectMemoryService> = {}): IProjectMemoryService {
+  return {
+    listEntries: vi.fn(),
+    getEntry: vi.fn(),
+    createEntry: vi.fn(),
+    updateEntry: vi.fn(),
+    removeEntry: vi.fn(),
+    getSettings: vi.fn(),
+    updateSettings: vi.fn(),
+    buildSummary: vi.fn(async () => ''),
     ...overrides,
   };
 }
@@ -467,6 +500,107 @@ describe('ConversationServiceImpl.createConversation', () => {
           enabledSkills: ['skill1'], // Factory value preserved
           cronJobId: 'job-123', // Params value added
         }),
+      })
+    );
+  });
+
+  it('injects shared project memory into gemini preset rules for project conversations', async () => {
+    const { createGeminiAgent } = await import('../../src/process/utils/initAgent');
+    vi.mocked(createGeminiAgent).mockResolvedValueOnce({
+      id: 'agent-conv-id',
+      name: 'Gemini Agent',
+      type: 'gemini',
+      model: { provider: 'gemini', model: 'gemini-2.0-flash' },
+      createTime: 1000,
+      modifyTime: 1000,
+      source: 'create' as const,
+      extra: { presetRules: '[Shared Project Memory]\n- rule: keep diffs concise' },
+    } as any);
+
+    const repo = makeRepo();
+    const projectRepo = makeProjectRepo();
+    const projectMemoryService = makeProjectMemoryService({
+      buildSummary: vi.fn(async () => '[Shared Project Memory]\n- rule: keep diffs concise'),
+    });
+    const svc = new ConversationServiceImpl(repo, projectRepo, projectMemoryService);
+
+    await svc.createConversation({
+      type: 'gemini',
+      model: { provider: 'gemini', model: 'gemini-2.0-flash' } as any,
+      projectId: 'project-1',
+      extra: {
+        workspace: '/workspace',
+        presetRules: 'existing rules',
+      },
+    });
+
+    expect(projectMemoryService.buildSummary).toHaveBeenCalledWith('project-1');
+    expect(createGeminiAgent).toHaveBeenCalledWith(
+      expect.anything(),
+      '/workspace',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      '[Shared Project Memory]\n- rule: keep diffs concise\n\nexisting rules',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined
+    );
+  });
+
+  it('injects shared project memory into acp preset context for project conversations', async () => {
+    const { createAcpAgent } = await import('../../src/process/utils/initAgent');
+    const repo = makeRepo();
+    const projectRepo = makeProjectRepo();
+    const projectMemoryService = makeProjectMemoryService({
+      buildSummary: vi.fn(async () => '[Shared Project Memory]\n- architecture: use services'),
+    });
+    const svc = new ConversationServiceImpl(repo, projectRepo, projectMemoryService);
+
+    await svc.createConversation({
+      type: 'acp',
+      model: { provider: 'anthropic', model: 'claude-3-5-sonnet' } as any,
+      projectId: 'project-1',
+      extra: {
+        workspace: '/workspace',
+        backend: 'claude',
+        presetContext: 'existing context',
+      },
+    });
+
+    expect(vi.mocked(createAcpAgent)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extra: expect.objectContaining({
+          presetContext: '[Shared Project Memory]\n- architecture: use services\n\nexisting context',
+        }),
+      })
+    );
+  });
+
+  it('skips project memory injection for unsupported conversation types', async () => {
+    const repo = makeRepo();
+    const projectRepo = makeProjectRepo();
+    const projectMemoryService = makeProjectMemoryService();
+    const svc = new ConversationServiceImpl(repo, projectRepo, projectMemoryService);
+
+    await svc.createConversation({
+      type: 'remote',
+      model: {} as any,
+      projectId: 'project-1',
+      extra: {
+        workspace: '/workspace',
+        remoteAgentId: 'remote-1',
+      },
+    });
+
+    expect(projectMemoryService.buildSummary).toHaveBeenCalledWith('project-1');
+    expect(repo.createConversation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'remote',
       })
     );
   });

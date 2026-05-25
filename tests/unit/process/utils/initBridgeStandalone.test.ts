@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
   initSpeechToTextBridge: vi.fn(),
   initHubBridge: vi.fn(),
   initProjectBridge: vi.fn(),
+  initProjectMemoryBridge: vi.fn(),
   initializeRegistry: vi.fn(async () => {}),
   loggerConfig: vi.fn(),
 }));
@@ -56,12 +57,20 @@ vi.mock('@process/services/database/SqliteProjectRepository', () => ({
   SqliteProjectRepository: vi.fn(),
 }));
 
+vi.mock('@process/services/database/projectMemory', () => ({
+  SqliteProjectMemoryRepository: vi.fn(),
+}));
+
 vi.mock('@process/services/ConversationServiceImpl', () => ({
   ConversationServiceImpl: vi.fn(),
 }));
 
 vi.mock('@process/services/ProjectServiceImpl', () => ({
   ProjectServiceImpl: vi.fn(),
+}));
+
+vi.mock('@process/services/projectMemory', () => ({
+  ProjectMemoryService: vi.fn(),
 }));
 
 vi.mock('@process/task/workerTaskManagerSingleton', () => ({
@@ -149,19 +158,23 @@ vi.mock('@process/bridge/hubBridge', () => ({
 vi.mock('@process/bridge/projectBridge', () => ({
   initProjectBridge: (...args: unknown[]) => mocks.initProjectBridge(...args),
 }));
+vi.mock('@process/bridge/projectMemoryBridge', () => ({
+  initProjectMemoryBridge: (...args: unknown[]) => mocks.initProjectMemoryBridge(...args),
+}));
 
 describe('initBridgeStandalone', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('registers the hub and project bridges and initializes ACP detection', async () => {
+  it('registers the hub, project, and project memory bridges and initializes ACP detection', async () => {
     const mod = await import('../../../../src/process/utils/initBridgeStandalone');
 
     await mod.initBridgeStandalone();
 
     expect(mocks.initHubBridge).toHaveBeenCalledTimes(1);
     expect(mocks.initProjectBridge).toHaveBeenCalledTimes(1);
+    expect(mocks.initProjectMemoryBridge).toHaveBeenCalledTimes(1);
     expect(mocks.initializeRegistry).toHaveBeenCalledTimes(1);
   });
 });

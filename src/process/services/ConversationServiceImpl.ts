@@ -7,6 +7,7 @@
 import type { IConversationService, CreateConversationParams, MigrateConversationParams } from './IConversationService';
 import type { IConversationRepository } from '@process/services/database/IConversationRepository';
 import type { IProjectRepository } from '@process/services/database/IProjectRepository';
+import type { IProjectMemoryService } from '@process/services/projectMemory';
 import type { TChatConversation } from '@/common/config/storage';
 import { uuid } from '@/common/utils';
 import { cronService } from './cron/cronServiceSingleton';
@@ -18,6 +19,7 @@ import {
   createRemoteAgent,
   createAionrsAgent,
 } from '@process/utils/initAgent';
+import { applyProjectMemoryToConversationParams } from '@process/services/projectMemory/applyProjectMemoryToConversationParams';
 
 /**
  * Concrete implementation of IConversationService.
@@ -26,7 +28,8 @@ import {
 export class ConversationServiceImpl implements IConversationService {
   constructor(
     private readonly repo: IConversationRepository,
-    private readonly projectRepo?: IProjectRepository
+    private readonly projectRepo?: IProjectRepository,
+    private readonly projectMemoryService?: IProjectMemoryService
   ) {}
 
   async getConversation(id: string): Promise<TChatConversation | undefined> {
@@ -136,13 +139,18 @@ export class ConversationServiceImpl implements IConversationService {
       }
     }
 
-    const resolvedParams: CreateConversationParams = {
+    let resolvedParams: CreateConversationParams = {
       ...params,
       extra: {
         ...params.extra,
         workspace: explicitWorkspace,
       },
     };
+
+    if (resolvedParams.projectId && this.projectMemoryService) {
+      const projectMemorySummary = await this.projectMemoryService.buildSummary(resolvedParams.projectId);
+      resolvedParams = applyProjectMemoryToConversationParams(resolvedParams, projectMemorySummary);
+    }
 
     switch (resolvedParams.type) {
       case 'gemini': {
