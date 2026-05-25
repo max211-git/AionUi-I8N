@@ -5,6 +5,7 @@
  */
 
 import { ConfigStorage } from '@/common/config/storage';
+import { selectPreferredAionrsProvider } from '@/common/config/providerSelection';
 import type { ICreateConversationParams } from '@/common/adapter/ipcBridge';
 import type { TProviderWithModel } from '@/common/config/storage';
 import type { AcpBackend } from '@/common/types/acpTypes';
@@ -93,7 +94,7 @@ export async function getDefaultAionrsModel(): Promise<TProviderWithModel> {
   }
 
   // aionrs supports all platforms via OpenAI-compatible protocol
-  const provider = providers.find((p) => p.enabled !== false);
+  const provider = selectPreferredAionrsProvider(providers);
   if (!provider) {
     throw new Error('No enabled model provider for Aion CLI');
   }

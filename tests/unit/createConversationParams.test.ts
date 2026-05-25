@@ -175,6 +175,40 @@ describe('createConversationParams', () => {
     expect(params.model.useModel).toBe('gpt-4.1');
   });
 
+  it('prefers openai-compatible providers over lower-priority aionrs providers', async () => {
+    configGet.mockResolvedValue([
+      {
+        id: 'provider-qwen',
+        platform: 'qwen',
+        name: 'Qwen Provider',
+        baseUrl: 'https://qwen.example.com',
+        apiKey: 'token-qwen',
+        model: ['qwen-max'],
+        enabled: true,
+      },
+      {
+        id: 'provider-openai',
+        platform: 'openai',
+        name: 'OpenAI Provider',
+        baseUrl: 'https://openai.example.com',
+        apiKey: 'token-openai',
+        model: ['gpt-4.1'],
+        enabled: true,
+      },
+    ]);
+
+    const params = await buildCliAgentParams(
+      {
+        backend: 'aionrs',
+        name: 'Aion CLI Agent',
+      },
+      '/tmp/workspace'
+    );
+
+    expect(params.model.id).toBe('provider-openai');
+    expect(params.model.useModel).toBe('gpt-4.1');
+  });
+
   it('throws error for aionrs if no provider configured', async () => {
     configGet.mockResolvedValue([]);
 

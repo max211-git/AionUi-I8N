@@ -10,6 +10,7 @@ import path from 'path';
 import { ipcBridge } from '@/common';
 import type { CronMessageMeta, TMessage } from '@/common/chat/chatLib';
 import type { IResponseMessage } from '@/common/adapter/ipcBridge';
+import { matchProviderForBackend } from '@/common/config/providerSelection';
 import type { TChatConversation, TProviderWithModel } from '@/common/config/storage';
 import type { AcpBackendAll, AgentBackend } from '@/common/types/acpTypes';
 import { uuid } from '@/common/utils';
@@ -400,7 +401,7 @@ export class WorkerTaskManagerJobExecutor implements ICronJobExecutor {
     }
 
     // For other backends, find a matching provider
-    const match = providerList.find((p) => p.platform === backend || p.id === backend);
+    const match = matchProviderForBackend(providerList, backend);
     if (match) {
       const useModel = preferredModelId || match.useModel || 'auto';
       return { ...match, useModel } as TProviderWithModel;

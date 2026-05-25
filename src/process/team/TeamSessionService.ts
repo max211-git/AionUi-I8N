@@ -2,6 +2,7 @@
 import { ipcBridge } from '@/common';
 import { uuid } from '@/common/utils';
 import { GOOGLE_AUTH_PROVIDER_ID } from '@/common/config/constants';
+import { selectPreferredAionrsProvider } from '@/common/config/providerSelection';
 import {
   buildAgentConversationParams,
   getConversationTypeForBackend,
@@ -139,7 +140,7 @@ export class TeamSessionService {
     const configuredProviders = await ProcessConfig.get('model.config');
     const providers = Array.isArray(configuredProviders) ? configuredProviders.filter((p) => p.enabled !== false) : [];
 
-    const provider = providers[0];
+    const provider = selectPreferredAionrsProvider(providers);
     if (!provider) {
       throw new Error('No enabled model provider for Aion CLI');
     }
