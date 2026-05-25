@@ -2,21 +2,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { CURRENT_DB_VERSION, initSchema } from '@process/services/database/schema';
 import { runMigrations } from '@process/services/database/migrations';
-import { BetterSqlite3Driver } from '@process/services/database/drivers/BetterSqlite3Driver';
+import { createDriver } from '@process/services/database/drivers/createDriver';
+import type { ISqliteDriver } from '@process/services/database/drivers/ISqliteDriver';
 import { SqliteTeamRepository } from '@process/team/repository/SqliteTeamRepository';
 import type { MailboxMessage, TeamTask, TTeam } from '@process/team/types';
-
-let nativeModuleAvailable = true;
-try {
-  const d = new BetterSqlite3Driver(':memory:');
-  d.close();
-} catch (e) {
-  if (e instanceof Error && e.message.includes('NODE_MODULE_VERSION')) {
-    nativeModuleAvailable = false;
-  }
-}
-
-const describeOrSkip = nativeModuleAvailable ? describe : describe.skip;
 
 function makeTeam(overrides: Partial<TTeam> = {}): TTeam {
   return {
@@ -43,12 +32,12 @@ function makeTeam(overrides: Partial<TTeam> = {}): TTeam {
   };
 }
 
-describeOrSkip('SqliteTeamRepository', () => {
+describe('SqliteTeamRepository', () => {
   let repo: SqliteTeamRepository;
-  let driver: BetterSqlite3Driver;
+  let driver: ISqliteDriver;
 
-  beforeEach(() => {
-    driver = new BetterSqlite3Driver(':memory:');
+  beforeEach(async () => {
+    driver = await createDriver(':memory:');
     initSchema(driver);
     runMigrations(driver, 0, CURRENT_DB_VERSION);
     // Insert a test user to satisfy the FOREIGN KEY constraint on teams.user_id

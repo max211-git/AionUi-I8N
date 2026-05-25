@@ -41,9 +41,7 @@ export class BunSqliteDriver implements ISqliteDriver {
   }
 
   exec(sql: string): void {
-    // bun:sqlite db.run() does not support multi-statement strings.
-    // Callers must pass single statements only.
-    this.db.run(sql);
+    this.db.exec(sql);
   }
 
   pragma(sql: string, options?: { simple?: boolean }): unknown {

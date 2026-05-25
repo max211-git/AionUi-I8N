@@ -89,6 +89,23 @@ const mockWebSocketState = vi.hoisted(() => ({
   throwOnUrl: undefined as string | undefined,
 }));
 
+class MockWebSocket {
+  private handlers = new Map<string, (arg: unknown) => void>();
+  constructor(url: string, options?: Record<string, unknown>) {
+    mockWebSocketState.lastUrl = url;
+    mockWebSocketState.lastOptions = options;
+    if (mockWebSocketState.throwOnUrl && url.includes(mockWebSocketState.throwOnUrl)) {
+      throw new SyntaxError('Invalid URL');
+    }
+
+    setTimeout(() => this.handlers.get('open')?.(undefined), 0);
+  }
+  on(event: string, handler: (arg: unknown) => void) {
+    this.handlers.set(event, handler);
+  }
+  close() {}
+}
+
 vi.mock('../../src/process/agent/openclaw/OpenClawGatewayConnection', () => ({
   OpenClawGatewayConnection: class {
     start = vi.fn();
@@ -105,23 +122,8 @@ vi.mock('../../src/process/agent/openclaw/OpenClawGatewayConnection', () => ({
 }));
 
 vi.mock('ws', () => ({
-  default: class MockWebSocket {
-    private handlers = new Map<string, (arg: unknown) => void>();
-    constructor(url: string, options?: Record<string, unknown>) {
-      mockWebSocketState.lastUrl = url;
-      mockWebSocketState.lastOptions = options;
-      if (mockWebSocketState.throwOnUrl && url.includes(mockWebSocketState.throwOnUrl)) {
-        throw new SyntaxError('Invalid URL');
-      }
-
-      // Simulate successful connection after a tick
-      setTimeout(() => this.handlers.get('open')?.(undefined), 0);
-    }
-    on(event: string, handler: (arg: unknown) => void) {
-      this.handlers.set(event, handler);
-    }
-    close() {}
-  },
+  default: MockWebSocket,
+  WebSocket: MockWebSocket,
 }));
 
 import { initRemoteAgentBridge } from '../../src/process/bridge/remoteAgentBridge';
@@ -137,7 +139,12 @@ describe('remoteAgentBridge', () => {
     mockWebSocketState.lastUrl = '';
     mockWebSocketState.lastOptions = undefined;
     mockWebSocketState.throwOnUrl = undefined;
+    (globalThis as { __AIONUI_TEST_WS__?: typeof MockWebSocket }).__AIONUI_TEST_WS__ = MockWebSocket;
     initRemoteAgentBridge();
+  });
+
+  afterEach(() => {
+    delete (globalThis as { __AIONUI_TEST_WS__?: typeof MockWebSocket }).__AIONUI_TEST_WS__;
   });
 
   describe('list provider', () => {

@@ -12,7 +12,7 @@ describe('base64ToBlob', () => {
     // "hello" in base64 is "aGVsbG8="
     const dataUrl = 'data:text/plain;base64,aGVsbG8=';
     const blob = base64ToBlob(dataUrl, 'text/plain');
-    expect(blob.type).toBe('text/plain');
+    expect(blob.type).toBe('text/plain;charset=utf-8');
     expect(blob.size).toBe(5); // "hello" is 5 bytes
   });
 
