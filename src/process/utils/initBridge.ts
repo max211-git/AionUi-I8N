@@ -10,8 +10,10 @@ import { initAllBridges } from '../bridge';
 import { SqliteChannelRepository } from '@process/services/database/SqliteChannelRepository';
 import { SqliteConversationRepository } from '@process/services/database/SqliteConversationRepository';
 import { SqliteProjectRepository } from '@process/services/database/SqliteProjectRepository';
+import { SqliteProjectMemoryRepository } from '@process/services/database/projectMemory';
 import { ConversationServiceImpl } from '@process/services/ConversationServiceImpl';
 import { cronService } from '@process/services/cron/cronServiceSingleton';
+import { ProjectMemoryService } from '@process/services/projectMemory';
 import { workerTaskManager } from '@process/task/workerTaskManagerSingleton';
 import { TeamSessionService, SqliteTeamRepository } from '@process/team';
 import { initTeamGuideService } from '@process/team/mcp/guide/teamGuideSingleton';
@@ -20,7 +22,9 @@ logger.config({ print: true });
 
 const repo = new SqliteConversationRepository();
 const projectRepo = new SqliteProjectRepository();
-const conversationServiceImpl = new ConversationServiceImpl(repo, projectRepo);
+const projectMemoryRepo = new SqliteProjectMemoryRepository();
+const projectMemoryServiceImpl = new ProjectMemoryService(projectMemoryRepo, projectRepo);
+const conversationServiceImpl = new ConversationServiceImpl(repo, projectRepo, projectMemoryServiceImpl);
 const projectServiceImpl = new ProjectServiceImpl(projectRepo);
 const channelRepo = new SqliteChannelRepository();
 const teamRepo = new SqliteTeamRepository();
@@ -34,6 +38,7 @@ initAllBridges({
   channelRepo,
   teamSessionService,
   projectService: projectServiceImpl,
+  projectMemoryService: projectMemoryServiceImpl,
 });
 
 // Initialize cron service (load jobs from database and start timers)

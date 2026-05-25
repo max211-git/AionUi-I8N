@@ -42,11 +42,13 @@ import { initExtensionsBridge } from './extensionsBridge';
 import { initWeixinLoginBridge } from './weixinLoginBridge';
 import { initWorkspaceSnapshotBridge } from './workspaceSnapshotBridge';
 import { initProjectBridge } from './projectBridge';
+import { initProjectMemoryBridge } from './projectMemoryBridge';
 import { initRemoteAgentBridge } from './remoteAgentBridge';
 import { initHubBridge } from './hubBridge';
 import { initTeamBridge } from './teamBridge';
 import type { TeamSessionService } from '@process/team/TeamSessionService';
 import type { IProjectService } from '@process/services/ProjectServiceImpl';
+import type { IProjectMemoryService } from '@process/services/projectMemory';
 
 export interface BridgeDependencies {
   conversationService: IConversationService;
@@ -55,6 +57,7 @@ export interface BridgeDependencies {
   channelRepo: IChannelRepository;
   teamSessionService: TeamSessionService;
   projectService: IProjectService;
+  projectMemoryService: IProjectMemoryService;
 }
 
 /**
@@ -98,6 +101,7 @@ export function initAllBridges(deps: BridgeDependencies): void {
   initHubBridge();
   initTeamBridge(deps.teamSessionService);
   initProjectBridge(deps.projectService);
+  initProjectMemoryBridge(deps.projectMemoryService);
 }
 
 /**
@@ -145,6 +149,7 @@ export {
   initRemoteAgentBridge,
   initHubBridge,
   initProjectBridge,
+  initProjectMemoryBridge,
   initTeamBridge,
   initWindowControlsBridge,
   initWeixinLoginBridge,

@@ -22,6 +22,12 @@ import type {
 } from '../update/updateTypes';
 import type { ProtocolDetectionRequest, ProtocolDetectionResponse } from '../utils/protocolDetector';
 import type { SpeechToTextRequest, SpeechToTextResult } from '../types/speech';
+import type {
+  CreateProjectMemoryEntryInput,
+  TProjectMemoryEntry,
+  TProjectMemorySettings,
+  UpdateProjectMemoryEntryInput,
+} from '../projectMemory';
 
 export const shell = {
   openFile: bridge.buildProvider<void, string>('open-file'), // 使用系统默认程序打开文件
@@ -1351,4 +1357,22 @@ export const project = {
   listChanged: bridge.buildEmitter<{ projectId: string; action: 'created' | 'updated' | 'deleted' }>(
     'project.list-changed'
   ),
+};
+
+export const projectMemory = {
+  list: bridge.buildProvider<TProjectMemoryEntry[], { projectId: string }>('project-memory.list'),
+  get: bridge.buildProvider<TProjectMemoryEntry | null, { projectId: string; entryId: string }>('project-memory.get'),
+  create: bridge.buildProvider<TProjectMemoryEntry, { projectId: string; input: CreateProjectMemoryEntryInput }>(
+    'project-memory.create'
+  ),
+  update: bridge.buildProvider<
+    boolean,
+    { projectId: string; entryId: string; updates: UpdateProjectMemoryEntryInput }
+  >('project-memory.update'),
+  remove: bridge.buildProvider<boolean, { projectId: string; entryId: string }>('project-memory.remove'),
+  getSettings: bridge.buildProvider<TProjectMemorySettings, { projectId: string }>('project-memory.get-settings'),
+  updateSettings: bridge.buildProvider<TProjectMemorySettings, { projectId: string; enabled: boolean }>(
+    'project-memory.update-settings'
+  ),
+  getSummary: bridge.buildProvider<string, { projectId: string }>('project-memory.get-summary'),
 };
