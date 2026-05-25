@@ -49,6 +49,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import WorkspaceCollapse from '../components/WorkspaceCollapse';
+import ProjectMemoryModal from './components/ProjectMemoryModal';
 import WorkspaceChatCreateModal from './components/WorkspaceChatCreateModal';
 import ConversationRow from './ConversationRow';
 import DragOverlayContent from './DragOverlayContent';
@@ -72,7 +73,10 @@ type SortableProjectCardProps = {
   renderProjectGroup: (
     projectGroup: ProjectGroup,
     reorderMode?: boolean,
-    dragListeners?: { attributes: ReturnType<typeof useSortable>['attributes']; listeners: ReturnType<typeof useSortable>['listeners'] }
+    dragListeners?: {
+      attributes: ReturnType<typeof useSortable>['attributes'];
+      listeners: ReturnType<typeof useSortable>['listeners'];
+    }
   ) => React.ReactNode;
 };
 
@@ -128,6 +132,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   const [teamRenameName, setTeamRenameName] = useState('');
   const [workspaceChatCreateProject, setWorkspaceChatCreateProject] = useState<TProject | null>(null);
   const [teamCreateProject, setTeamCreateProject] = useState<TProject | null>(null);
+  const [projectMemoryProject, setProjectMemoryProject] = useState<TProject | null>(null);
   const topLevelTeamDraftProject = useMemo<TProject>(() => ({ id: '', name: '', createdAt: 0, updatedAt: 0 }), []);
   const [projectSaving, setProjectSaving] = useState(false);
   const [isProjectReorderMode, setIsProjectReorderMode] = useState(false);
@@ -904,6 +909,10 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                         handleStartEditProject(project);
                         return;
                       }
+                      if (key === 'memory') {
+                        setProjectMemoryProject(project);
+                        return;
+                      }
                       if (key === 'delete') {
                         handleDeleteProject(project);
                       }
@@ -913,9 +922,12 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                       {project.pinnedAt ? t('conversation.history.unpinProject') : t('conversation.history.pinProject')}
                     </Menu.Item>
                     <Menu.Item key='new-chat'>{t('conversation.history.newChatInProject')}</Menu.Item>
-                    <Menu.Item key='new-workspace-chat'>{t('conversation.history.newWorkspaceChatInProject')}</Menu.Item>
+                    <Menu.Item key='new-workspace-chat'>
+                      {t('conversation.history.newWorkspaceChatInProject')}
+                    </Menu.Item>
                     <Menu.Item key='new-team'>{t('conversation.history.newTeamInProject')}</Menu.Item>
                     <Menu.Item key='edit'>{t('conversation.history.editProject')}</Menu.Item>
+                    <Menu.Item key='memory'>{t('conversation.history.projectMemory')}</Menu.Item>
                     <Menu.Item key='delete'>
                       <span className='text-[rgb(var(--warning-6))]'>{t('conversation.history.deleteProject')}</span>
                     </Menu.Item>
@@ -1181,6 +1193,12 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
         onCreated={() => setWorkspaceChatCreateProject(null)}
       />
 
+      <ProjectMemoryModal
+        visible={projectMemoryProject !== null}
+        project={projectMemoryProject}
+        onCancel={() => setProjectMemoryProject(null)}
+      />
+
       <Modal
         title={t('team.sider.assignProjectTitle')}
         visible={teamAssignProjectVisible}
@@ -1388,7 +1406,10 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                   onDragCancel={handleProjectDragCancel}
                   onDragEnd={(event) => void handleProjectDragEnd(event)}
                 >
-                  <SortableContext items={orderedProjectGroups.map((group) => group.project.id)} strategy={verticalListSortingStrategy}>
+                  <SortableContext
+                    items={orderedProjectGroups.map((group) => group.project.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
                     {orderedProjectGroups.map((projectGroup) => (
                       <SortableProjectCard
                         key={projectGroup.project.id}
