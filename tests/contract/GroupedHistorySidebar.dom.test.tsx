@@ -136,6 +136,10 @@ vi.mock('@/renderer/pages/conversation/GroupedHistory/components/WorkspaceChatCr
   default: () => null,
 }));
 
+vi.mock('@/renderer/pages/conversation/GroupedHistory/components/ProjectMemoryModal', () => ({
+  default: () => null,
+}));
+
 vi.mock('@/renderer/pages/conversation/GroupedHistory/ConversationRow', () => ({
   default: () => <div data-testid='conversation-row' />,
 }));
@@ -197,13 +201,9 @@ vi.mock('@icon-park/react', () => ({
 }));
 
 vi.mock('@arco-design/web-react', () => ({
-  Button: ({
-    children,
-    onClick,
-  }: {
-    children?: React.ReactNode;
-    onClick?: () => void;
-  }) => <button onClick={onClick}>{children}</button>,
+  Button: ({ children, onClick }: { children?: React.ReactNode; onClick?: () => void }) => (
+    <button onClick={onClick}>{children}</button>
+  ),
   Dropdown: ({ children, droplist }: { children?: React.ReactNode; droplist?: React.ReactNode }) => (
     <div>
       {children}
@@ -221,7 +221,14 @@ vi.mock('@arco-design/web-react', () => ({
     onChange?: (value: string) => void;
     placeholder?: string;
     autoFocus?: boolean;
-  }) => <input value={value} onChange={(event) => onChange?.(event.target.value)} placeholder={placeholder} autoFocus={autoFocus} />,
+  }) => (
+    <input
+      value={value}
+      onChange={(event) => onChange?.(event.target.value)}
+      placeholder={placeholder}
+      autoFocus={autoFocus}
+    />
+  ),
   Menu: Object.assign(({ children }: { children?: React.ReactNode }) => <div>{children}</div>, {
     Item: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
     SubMenu: ({ children, title }: { children?: React.ReactNode; title?: React.ReactNode }) => (
@@ -235,7 +242,8 @@ vi.mock('@arco-design/web-react', () => ({
     success: vi.fn(),
     error: vi.fn(),
   },
-  Modal: ({ children, visible }: { children?: React.ReactNode; visible?: boolean }) => (visible ? <div>{children}</div> : null),
+  Modal: ({ children, visible }: { children?: React.ReactNode; visible?: boolean }) =>
+    visible ? <div>{children}</div> : null,
   Select: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 
@@ -279,5 +287,31 @@ describe('GroupedHistory sidebar visibility contracts', () => {
 
     expect(screen.getByText('team.sider.rename')).toBeInTheDocument();
     expect(screen.getByText('team.sider.delete')).toBeInTheDocument();
+  });
+
+  it('keeps the project memory action available in project menus', () => {
+    testState.groupedHistory = {
+      pinnedConversations: [],
+      projectGroups: [
+        {
+          project: {
+            id: 'project-1',
+            name: 'Project Atlas',
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          conversations: [],
+          chatConversations: [],
+          workspaceGroups: [],
+          teams: [],
+        },
+      ],
+      unassignedTeams: [],
+      timelineSections: [],
+    };
+
+    render(<WorkspaceGroupedHistory collapsed={false} />);
+
+    expect(screen.getByText('conversation.history.projectMemory')).toBeInTheDocument();
   });
 });
