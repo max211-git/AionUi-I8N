@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 
 const mockFcp = {
   on: vi.fn().mockReturnThis(),
@@ -21,8 +21,17 @@ vi.mock('../../src/process/utils/shellEnv', () => ({
 import { ForkTask } from '../../src/process/worker/fork/ForkTask';
 
 describe('ForkTask.postMessagePromise when fcp is undefined', () => {
+  const createdTasks: ForkTask<Record<string, never>>[] = [];
+
+  afterEach(() => {
+    for (const task of createdTasks.splice(0)) {
+      task.kill();
+    }
+  });
+
   it('rejects with a promise instead of throwing synchronously', async () => {
     const task = new ForkTask('test-path', {}, true);
+    createdTasks.push(task);
     // Simulate child process exit by clearing fcp
     (task as any).fcp = undefined;
 
@@ -31,6 +40,7 @@ describe('ForkTask.postMessagePromise when fcp is undefined', () => {
 
   it('postMessage still throws synchronously when fcp is undefined', () => {
     const task = new ForkTask('test-path', {}, true);
+    createdTasks.push(task);
     (task as any).fcp = undefined;
 
     expect(() => task.postMessage('test', {})).toThrow('fork task not enabled');
@@ -38,6 +48,7 @@ describe('ForkTask.postMessagePromise when fcp is undefined', () => {
 
   it('postMessage works when fcp is available', () => {
     const task = new ForkTask('test-path', {}, true);
+    createdTasks.push(task);
 
     task.postMessage('test', { foo: 'bar' });
     expect(mockFcp.postMessage).toHaveBeenCalledWith({ type: 'test', data: { foo: 'bar' } });

@@ -81,6 +81,14 @@ export const useResizableSplit = (options: UseResizableSplitOptions = {}) => {
     [storageKey, dispatchSplitResizeEvent]
   );
 
+  const setSplitRatioTransient = useCallback(
+    (ratio: number) => {
+      setSplitRatioState(ratio);
+      dispatchSplitResizeEvent(ratio);
+    },
+    [dispatchSplitResizeEvent]
+  );
+
   // 处理拖动开始事件 / Handle drag start event
   const handleDragStart = useCallback(
     (reverse = false) =>
@@ -263,6 +271,7 @@ export const useResizableSplit = (options: UseResizableSplitOptions = {}) => {
     splitRatio,
     dragHandle: renderHandle({ className: 'right-0' }),
     setSplitRatio,
+    setSplitRatioTransient,
     createDragHandle: renderHandle,
   };
 };

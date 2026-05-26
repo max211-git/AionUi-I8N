@@ -10,9 +10,11 @@ import { initAllBridges } from '../bridge';
 import { SqliteChannelRepository } from '@process/services/database/SqliteChannelRepository';
 import { SqliteConversationRepository } from '@process/services/database/SqliteConversationRepository';
 import { SqliteProjectRepository } from '@process/services/database/SqliteProjectRepository';
+import { SqliteProjectAssetRepository } from '@process/services/database/projectAssets';
 import { SqliteProjectMemoryRepository } from '@process/services/database/projectMemory';
 import { ConversationServiceImpl } from '@process/services/ConversationServiceImpl';
 import { cronService } from '@process/services/cron/cronServiceSingleton';
+import { ProjectAssetService } from '@process/services/projectAssets';
 import { ProjectMemoryService } from '@process/services/projectMemory';
 import { workerTaskManager } from '@process/task/workerTaskManagerSingleton';
 import { TeamSessionService, SqliteTeamRepository } from '@process/team';
@@ -22,7 +24,9 @@ logger.config({ print: true });
 
 const repo = new SqliteConversationRepository();
 const projectRepo = new SqliteProjectRepository();
+const projectAssetRepo = new SqliteProjectAssetRepository();
 const projectMemoryRepo = new SqliteProjectMemoryRepository();
+const projectAssetServiceImpl = new ProjectAssetService(projectAssetRepo, projectRepo);
 const projectMemoryServiceImpl = new ProjectMemoryService(projectMemoryRepo, projectRepo);
 const conversationServiceImpl = new ConversationServiceImpl(repo, projectRepo, projectMemoryServiceImpl);
 const projectServiceImpl = new ProjectServiceImpl(projectRepo);
@@ -38,6 +42,7 @@ initAllBridges({
   channelRepo,
   teamSessionService,
   projectService: projectServiceImpl,
+  projectAssetService: projectAssetServiceImpl,
   projectMemoryService: projectMemoryServiceImpl,
 });
 

@@ -199,6 +199,7 @@ resources/hub
 
 # Server build output
 dist-server/
+index.js
 .omc/
 .superset/
 .claude/teams/

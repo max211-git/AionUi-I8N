@@ -5,11 +5,7 @@
  */
 
 import { ipcBridge } from '@/common';
-import {
-  PROJECT_MEMORY_ENTRY_TYPES,
-  type TProjectMemoryEntry,
-  type TProjectMemorySettings,
-} from '@/common/projectMemory';
+import { type TProjectMemoryEntry, type TProjectMemorySettings } from '@/common/projectMemory';
 import type { TProject } from '@/common/adapter/ipcBridge';
 import AionScrollArea from '@/renderer/components/base/AionScrollArea';
 import { Button, Empty, Input, Message, Modal, Switch, Tag } from '@arco-design/web-react';
@@ -47,7 +43,9 @@ const ProjectMemoryModal: React.FC<ProjectMemoryModalProps> = ({ visible, projec
   const [summary, setSummary] = useState('');
   const [editorVisible, setEditorVisible] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TProjectMemoryEntry | null>(null);
-  const [editorInitialDraft, setEditorInitialDraft] = useState<ProjectMemoryEntryDraft>(createProjectMemoryEntryDraft());
+  const [editorInitialDraft, setEditorInitialDraft] = useState<ProjectMemoryEntryDraft>(
+    createProjectMemoryEntryDraft()
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const latestMessageApiRef = useRef(messageApi);
   const latestTRef = useRef(t);
@@ -113,15 +111,6 @@ const ProjectMemoryModal: React.FC<ProjectMemoryModalProps> = ({ visible, projec
       setSearchQuery('');
     }
   }, [visible]);
-
-  const entryTypeOptions = useMemo(
-    () =>
-      PROJECT_MEMORY_ENTRY_TYPES.map((type) => ({
-        label: t(`conversation.history.projectMemoryType${type[0].toUpperCase()}${type.slice(1)}` as const),
-        value: type,
-      })),
-    [t]
-  );
 
   const handleToggleEnabled = useCallback(
     async (enabled: boolean) => {
@@ -281,7 +270,9 @@ const ProjectMemoryModal: React.FC<ProjectMemoryModalProps> = ({ visible, projec
                         <div className='flex items-start justify-between gap-12px'>
                           <div className='min-w-0 flex-1'>
                             <div className='flex flex-wrap items-center gap-8px'>
-                              <span className='min-w-0 truncate text-14px font-medium text-t-primary'>{entry.name}</span>
+                              <span className='min-w-0 truncate text-14px font-medium text-t-primary'>
+                                {entry.name}
+                              </span>
                               <Tag>
                                 {t(
                                   `conversation.history.projectMemoryType${entry.type[0].toUpperCase()}${entry.type.slice(1)}` as const

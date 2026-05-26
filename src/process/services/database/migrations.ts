@@ -1364,6 +1364,65 @@ const migration_v32: IMigration = {
   },
 };
 
+const migration_v33: IMigration = {
+  version: 33,
+  name: 'Add project asset index table',
+  up: (db) => {
+    db.exec(`CREATE TABLE IF NOT EXISTS project_assets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      source_type TEXT NOT NULL,
+      absolute_path TEXT NOT NULL,
+      relative_path TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      mime_type TEXT,
+      size INTEGER,
+      modified_at INTEGER,
+      indexed_at INTEGER NOT NULL,
+      removed_at INTEGER,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`);
+    db.exec(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_project_assets_project_relative ON project_assets(project_id, relative_path)'
+    );
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_project_assets_project_category_removed ON project_assets(project_id, category, removed_at)'
+    );
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_project_assets_project_indexed ON project_assets(project_id, indexed_at DESC)'
+    );
+    console.log('[Migration v33] Added project asset index table');
+  },
+  down: (db) => {
+    db.exec('DROP INDEX IF EXISTS idx_project_assets_project_indexed');
+    db.exec('DROP INDEX IF EXISTS idx_project_assets_project_category_removed');
+    db.exec('DROP INDEX IF EXISTS idx_project_assets_project_relative');
+    db.exec('DROP TABLE IF EXISTS project_assets');
+    console.log('[Migration v33] Rolled back: Removed project asset index table');
+  },
+};
+
+const migration_v34: IMigration = {
+  version: 34,
+  name: 'Add project asset context enabled flag',
+  up: (db) => {
+    const projectAssetColumns = new Set(
+      (db.pragma('table_info(project_assets)') as Array<{ name: string }>).map((column) => column.name)
+    );
+    if (!projectAssetColumns.has('context_enabled')) {
+      db.exec('ALTER TABLE project_assets ADD COLUMN context_enabled INTEGER NOT NULL DEFAULT 0');
+    }
+
+    console.log('[Migration v34] Added context_enabled column to project_assets');
+  },
+  down: (_db) => {
+    console.warn('[Migration v34] Rollback skipped: context_enabled column remains on project_assets.');
+  },
+};
+
 /**
  * All migrations in order
  */
@@ -1374,7 +1433,7 @@ export const ALL_MIGRATIONS: IMigration[] = [
   migration_v13, migration_v14, migration_v15, migration_v16, migration_v17, migration_v18,
   migration_v19, migration_v20, migration_v21, migration_v22, migration_v23, migration_v24,
   migration_v25, migration_v26, migration_v27, migration_v28, migration_v29, migration_v30,
-  migration_v31, migration_v32,
+  migration_v31, migration_v32, migration_v33, migration_v34,
 ];
 
 /**

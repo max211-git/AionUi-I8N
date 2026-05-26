@@ -7,7 +7,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@arco-design/web-react';
-import { ListCheckbox, Plus } from '@icon-park/react';
+import { ExpandDownOne, FoldUpOne, ListCheckbox, Plus } from '@icon-park/react';
 import classNames from 'classnames';
 import type { SiderTooltipProps } from '@renderer/utils/ui/siderTooltip';
 import styles from '../Sider.module.css';
@@ -19,6 +19,9 @@ interface SiderToolbarProps {
   siderTooltipProps: SiderTooltipProps;
   onNewChat: () => void;
   onToggleBatchMode: () => void;
+  showHistoryExpansionControl: boolean;
+  historyFullyExpanded: boolean;
+  onToggleHistoryExpansion: () => void;
 }
 
 const SiderToolbar: React.FC<SiderToolbarProps> = ({
@@ -28,6 +31,9 @@ const SiderToolbar: React.FC<SiderToolbarProps> = ({
   siderTooltipProps,
   onNewChat,
   onToggleBatchMode,
+  showHistoryExpansionControl,
+  historyFullyExpanded,
+  onToggleHistoryExpansion,
 }) => {
   const { t } = useTranslation();
 
@@ -80,6 +86,33 @@ const SiderToolbar: React.FC<SiderToolbarProps> = ({
           </span>
         </div>
       </Tooltip>
+      {showHistoryExpansionControl && (
+        <Tooltip
+          {...siderTooltipProps}
+          content={historyFullyExpanded ? t('common.collapse') : t('common.expand')}
+          position='right'
+        >
+          <div
+            className={classNames(
+              'h-40px w-40px rd-0.5rem flex items-center justify-center cursor-pointer shrink-0 transition-all border border-solid border-transparent',
+              isMobile && 'sider-action-icon-btn-mobile',
+              'hover:bg-fill-2 hover:border-[var(--color-border-2)] text-t-secondary hover:text-t-primary'
+            )}
+            onClick={onToggleHistoryExpansion}
+          >
+            {historyFullyExpanded ? (
+              <FoldUpOne theme='outline' size='20' className='block leading-none shrink-0' style={{ lineHeight: 0 }} />
+            ) : (
+              <ExpandDownOne
+                theme='outline'
+                size='20'
+                className='block leading-none shrink-0'
+                style={{ lineHeight: 0 }}
+              />
+            )}
+          </div>
+        </Tooltip>
+      )}
       <Tooltip
         {...siderTooltipProps}
         content={isBatchMode ? t('conversation.history.batchModeExit') : t('conversation.history.batchManage')}

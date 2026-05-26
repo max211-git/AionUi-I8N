@@ -29,7 +29,14 @@ const OpenClawChat: React.FC<{
   }, [workspace]);
   return (
     <ConversationProvider
-      value={{ conversationId: conversation_id, workspace, projectId, type: 'openclaw-gateway', cronJobId, hideSendBox }}
+      value={{
+        conversationId: conversation_id,
+        workspace,
+        projectId,
+        type: 'openclaw-gateway',
+        cronJobId,
+        hideSendBox,
+      }}
     >
       <div className='flex-1 flex flex-col px-20px min-h-0'>
         <FlexFullContainer>

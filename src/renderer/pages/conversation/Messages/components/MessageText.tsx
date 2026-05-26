@@ -121,7 +121,7 @@ const MessageText: React.FC<{ message: IMessageText }> = ({ message }) => {
   const [showCopyAlert, setShowCopyAlert] = useState(false);
   const [rememberVisible, setRememberVisible] = useState(false);
   const [rememberProject, setRememberProject] = useState<TProject | null>(null);
-  const [rememberLoading, setRememberLoading] = useState(false);
+  const [, setRememberLoading] = useState(false);
   const isUserMessage = message.position === 'right';
   const isTeammateMessage = message.position === 'left' && message.content.teammateMessage === true;
   const shouldRenderPlainText = isUserMessage;

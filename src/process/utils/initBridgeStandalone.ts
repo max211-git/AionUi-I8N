@@ -16,9 +16,11 @@ import { agentRegistry } from '@process/agent/AgentRegistry';
 import { SqliteChannelRepository } from '@process/services/database/SqliteChannelRepository';
 import { SqliteConversationRepository } from '@process/services/database/SqliteConversationRepository';
 import { SqliteProjectRepository } from '@process/services/database/SqliteProjectRepository';
+import { SqliteProjectAssetRepository } from '@process/services/database/projectAssets';
 import { SqliteProjectMemoryRepository } from '@process/services/database/projectMemory';
 import { ConversationServiceImpl } from '@process/services/ConversationServiceImpl';
 import { ProjectServiceImpl } from '@process/services/ProjectServiceImpl';
+import { ProjectAssetService } from '@process/services/projectAssets';
 import { ProjectMemoryService } from '@process/services/projectMemory';
 import { workerTaskManager } from '@process/task/workerTaskManagerSingleton';
 import { initAcpConversationBridge } from '@process/bridge/acpConversationBridge';
@@ -48,6 +50,7 @@ import { initTaskBridge } from '@process/bridge/taskBridge';
 import { initSpeechToTextBridge } from '@process/bridge/speechToTextBridge';
 import { initHubBridge } from '@process/bridge/hubBridge';
 import { initProjectBridge } from '@process/bridge/projectBridge';
+import { initProjectAssetBridge } from '@process/bridge/projectAssetBridge';
 import { initProjectMemoryBridge } from '@process/bridge/projectMemoryBridge';
 
 logger.config({ print: true });
@@ -55,7 +58,9 @@ logger.config({ print: true });
 export async function initBridgeStandalone(): Promise<void> {
   const repo = new SqliteConversationRepository();
   const projectRepo = new SqliteProjectRepository();
+  const projectAssetRepo = new SqliteProjectAssetRepository();
   const projectMemoryRepo = new SqliteProjectMemoryRepository();
+  const projectAssetService = new ProjectAssetService(projectAssetRepo, projectRepo);
   const projectMemoryService = new ProjectMemoryService(projectMemoryRepo, projectRepo);
   const conversationService = new ConversationServiceImpl(repo, projectRepo, projectMemoryService);
   const projectService = new ProjectServiceImpl(projectRepo);
@@ -91,6 +96,7 @@ export async function initBridgeStandalone(): Promise<void> {
   initSpeechToTextBridge();
   initHubBridge();
   initProjectBridge(projectService);
+  initProjectAssetBridge(projectAssetService);
   initProjectMemoryBridge(projectMemoryService);
 
   // Initialize ACP detector to scan for installed CLI agents (claude, codex, etc.)

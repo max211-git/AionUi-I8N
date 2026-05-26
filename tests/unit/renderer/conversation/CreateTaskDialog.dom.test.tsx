@@ -1,7 +1,20 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ICronJob } from '@/common/adapter/ipcBridge';
+
+const extractTextContent = (node: React.ReactNode): string => {
+  if (typeof node === 'string' || typeof node === 'number') {
+    return String(node);
+  }
+  if (Array.isArray(node)) {
+    return node.map(extractTextContent).join('');
+  }
+  if (React.isValidElement(node)) {
+    return extractTextContent(node.props.children);
+  }
+  return '';
+};
 
 const mockShowOpen = vi.hoisted(() => vi.fn().mockResolvedValue([]));
 const mockIsElectronDesktop = vi.hoisted(() => vi.fn(() => true));
@@ -113,11 +126,19 @@ vi.mock('@arco-design/web-react', () => ({
     }
   ),
   Input: Object.assign(
-    ({ placeholder, ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
+    ({
+      placeholder,
+      allowClear: _allowClear,
+      ...props
+    }: React.InputHTMLAttributes<HTMLInputElement> & { allowClear?: unknown }) => (
       <input placeholder={placeholder} {...props} />
     ),
     {
-      TextArea: ({ placeholder, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
+      TextArea: ({
+        placeholder,
+        autoSize: _autoSize,
+        ...props
+      }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { autoSize?: unknown }) => (
         <textarea placeholder={placeholder} {...props} />
       ),
     }
@@ -145,7 +166,7 @@ vi.mock('@arco-design/web-react', () => ({
     ),
     {
       Option: ({ value, children }: { value: string; children: React.ReactNode }) => (
-        <option value={value}>{children}</option>
+        <option value={value}>{extractTextContent(children)}</option>
       ),
       OptGroup: ({ label, children }: { label: string; children: React.ReactNode }) => (
         <optgroup label={label}>{children}</optgroup>
@@ -350,6 +371,25 @@ vi.mock('dayjs', () => ({
 
 import CreateTaskDialog from '@/renderer/pages/cron/ScheduledTasksPage/CreateTaskDialog';
 
+const flushDialogEffects = async () => {
+  await act(async () => {
+    await Promise.resolve();
+  });
+};
+
+const renderDialog = async (ui: React.ReactElement) => {
+  const view = render(ui);
+  await flushDialogEffects();
+  return view;
+};
+
+const rerenderDialog = async (rerender: (ui: React.ReactElement) => void, ui: React.ReactElement) => {
+  await act(async () => {
+    rerender(ui);
+    await Promise.resolve();
+  });
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
@@ -359,7 +399,7 @@ beforeEach(() => {
 
 describe('CreateTaskDialog - parseCronExpr utility', () => {
   // Test parseCronExpr indirectly by checking if edit mode populates the form correctly
-  it('parses hourly cron expression (0 * * * *)', () => {
+  it('parses hourly cron expression (0 * * * *)', async () => {
     const editJob: ICronJob = {
       id: 'job-1',
       name: 'Hourly Task',
@@ -385,12 +425,15 @@ describe('CreateTaskDialog - parseCronExpr utility', () => {
       lastExecutionTime: Date.now(),
     };
 
-    const { rerender } = render(
+    const { rerender } = await renderDialog(
       <CreateTaskDialog visible={false} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
     );
 
     // Trigger the useEffect by setting visible=true
-    rerender(<CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
+    await rerenderDialog(
+      rerender,
+      <CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
+    );
 
     // Since we cannot directly test parseCronExpr (not exported), we verify the component behavior
     // The component should detect hourly frequency from "0 * * * *"
@@ -404,7 +447,7 @@ describe('CreateTaskDialog - parseCronExpr utility', () => {
     expect(frequencySelect).toBeDefined();
   });
 
-  it('parses daily cron expression (30 9 * * *)', () => {
+  it('parses daily cron expression (30 9 * * *)', async () => {
     const editJob: ICronJob = {
       id: 'job-2',
       name: 'Daily Task',
@@ -430,17 +473,20 @@ describe('CreateTaskDialog - parseCronExpr utility', () => {
       lastExecutionTime: Date.now(),
     };
 
-    const { rerender } = render(
+    const { rerender } = await renderDialog(
       <CreateTaskDialog visible={false} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
     );
 
-    rerender(<CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
+    await rerenderDialog(
+      rerender,
+      <CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
+    );
 
     // Should show time picker for daily frequency
     expect(screen.queryByTestId('mock-time-picker')).toBeInTheDocument();
   });
 
-  it('parses weekdays cron expression (0 14 * * MON-FRI)', () => {
+  it('parses weekdays cron expression (0 14 * * MON-FRI)', async () => {
     const editJob: ICronJob = {
       id: 'job-3',
       name: 'Weekday Task',
@@ -466,17 +512,20 @@ describe('CreateTaskDialog - parseCronExpr utility', () => {
       lastExecutionTime: Date.now(),
     };
 
-    const { rerender } = render(
+    const { rerender } = await renderDialog(
       <CreateTaskDialog visible={false} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
     );
 
-    rerender(<CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
+    await rerenderDialog(
+      rerender,
+      <CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
+    );
 
     // Should show time picker but not weekday picker for weekdays frequency
     expect(screen.queryByTestId('mock-time-picker')).toBeInTheDocument();
   });
 
-  it('parses weekly cron expression (0 10 * * WED)', () => {
+  it('parses weekly cron expression (0 10 * * WED)', async () => {
     const editJob: ICronJob = {
       id: 'job-4',
       name: 'Weekly Task',
@@ -502,17 +551,20 @@ describe('CreateTaskDialog - parseCronExpr utility', () => {
       lastExecutionTime: Date.now(),
     };
 
-    const { rerender } = render(
+    const { rerender } = await renderDialog(
       <CreateTaskDialog visible={false} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
     );
 
-    rerender(<CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
+    await rerenderDialog(
+      rerender,
+      <CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
+    );
 
     // Should show both time picker and weekday picker for weekly frequency
     expect(screen.queryByTestId('mock-time-picker')).toBeInTheDocument();
   });
 
-  it('handles invalid or empty cron expressions gracefully', () => {
+  it('handles invalid or empty cron expressions gracefully', async () => {
     const editJob: ICronJob = {
       id: 'job-5',
       name: 'Invalid Task',
@@ -538,17 +590,20 @@ describe('CreateTaskDialog - parseCronExpr utility', () => {
       lastExecutionTime: Date.now(),
     };
 
-    const { rerender } = render(
+    const { rerender } = await renderDialog(
       <CreateTaskDialog visible={false} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
     );
 
-    rerender(<CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
+    await rerenderDialog(
+      rerender,
+      <CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
+    );
 
     // Should default to manual frequency
     expect(screen.getByTestId('modal-wrapper')).toBeInTheDocument();
   });
 
-  it('handles custom cron expressions (e.g., every 4 hours)', () => {
+  it('handles custom cron expressions (e.g., every 4 hours)', async () => {
     const editJob: ICronJob = {
       id: 'job-6',
       name: 'Every 4 Hours Task',
@@ -574,11 +629,14 @@ describe('CreateTaskDialog - parseCronExpr utility', () => {
       lastExecutionTime: Date.now(),
     };
 
-    const { rerender } = render(
+    const { rerender } = await renderDialog(
       <CreateTaskDialog visible={false} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
     );
 
-    rerender(<CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
+    await rerenderDialog(
+      rerender,
+      <CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
+    );
 
     // Should render without errors and recognize it as a custom schedule
     expect(screen.getByTestId('modal-wrapper')).toBeInTheDocument();
@@ -586,7 +644,7 @@ describe('CreateTaskDialog - parseCronExpr utility', () => {
 });
 
 describe('CreateTaskDialog - getAgentKeyFromJob utility', () => {
-  it('returns correct key for CLI agent', () => {
+  it('returns correct key for CLI agent', async () => {
     const editJob: ICronJob = {
       id: 'job-1',
       name: 'Task',
@@ -612,18 +670,21 @@ describe('CreateTaskDialog - getAgentKeyFromJob utility', () => {
       lastExecutionTime: Date.now(),
     };
 
-    const { rerender } = render(
+    const { rerender } = await renderDialog(
       <CreateTaskDialog visible={false} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
     );
 
-    rerender(<CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
+    await rerenderDialog(
+      rerender,
+      <CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
+    );
 
     // getAgentKeyFromJob should return "cli:claude"
     // We verify indirectly by checking that the agent field is populated
     expect(screen.getByTestId('modal-wrapper')).toBeInTheDocument();
   });
 
-  it('returns correct key for preset agent', () => {
+  it('returns correct key for preset agent', async () => {
     const editJob: ICronJob = {
       id: 'job-2',
       name: 'Task',
@@ -651,17 +712,20 @@ describe('CreateTaskDialog - getAgentKeyFromJob utility', () => {
       lastExecutionTime: Date.now(),
     };
 
-    const { rerender } = render(
+    const { rerender } = await renderDialog(
       <CreateTaskDialog visible={false} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
     );
 
-    rerender(<CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
+    await rerenderDialog(
+      rerender,
+      <CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
+    );
 
     // getAgentKeyFromJob should return "preset:assistant-1"
     expect(screen.getByTestId('modal-wrapper')).toBeInTheDocument();
   });
 
-  it('returns undefined when agentConfig is missing', () => {
+  it('returns undefined when agentConfig is missing', async () => {
     const editJob: ICronJob = {
       id: 'job-3',
       name: 'Task',
@@ -682,11 +746,14 @@ describe('CreateTaskDialog - getAgentKeyFromJob utility', () => {
       lastExecutionTime: Date.now(),
     };
 
-    const { rerender } = render(
+    const { rerender } = await renderDialog(
       <CreateTaskDialog visible={false} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
     );
 
-    rerender(<CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
+    await rerenderDialog(
+      rerender,
+      <CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />
+    );
 
     // Should render without errors even when agentConfig is missing
     expect(screen.getByTestId('modal-wrapper')).toBeInTheDocument();
@@ -698,7 +765,7 @@ describe('CreateTaskDialog - schedule preset definitions', () => {
     vi.clearAllMocks();
   });
 
-  it('shows the existing-conversation explanation for tasks that keep running in one thread', () => {
+  it('shows the existing-conversation explanation for tasks that keep running in one thread', async () => {
     const editJob: ICronJob = {
       id: 'job-existing-mode',
       name: 'Existing Mode Task',
@@ -724,7 +791,7 @@ describe('CreateTaskDialog - schedule preset definitions', () => {
       lastExecutionTime: Date.now(),
     };
 
-    render(<CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
+    await renderDialog(<CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
 
     expect(
       screen.getByText('Each run continues in the same conversation, so earlier context and results stay available.')
@@ -1016,7 +1083,7 @@ describe('CreateTaskDialog - advanced settings workspace picker', () => {
 });
 
 describe('CreateTaskDialog - custom schedule hint', () => {
-  it('shows the custom schedule note as lightweight hint text and removes the delay hint', () => {
+  it('shows the custom schedule note as lightweight hint text and removes the delay hint', async () => {
     const editJob: ICronJob = {
       id: 'job-custom-hint',
       name: 'Custom Task',
@@ -1042,7 +1109,7 @@ describe('CreateTaskDialog - custom schedule hint', () => {
       lastExecutionTime: Date.now(),
     };
 
-    render(<CreateTaskDialog visible onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
+    await renderDialog(<CreateTaskDialog visible onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
 
     const hint = screen.getByText(
       "This task has a custom schedule that can't be edited here. Changing the frequency will replace it."
@@ -1061,14 +1128,14 @@ describe('CreateTaskDialog - component behavior', () => {
     vi.clearAllMocks();
   });
 
-  it('renders in create mode when no editJob is provided', () => {
-    render(<CreateTaskDialog visible={true} onClose={vi.fn()} conversationId='conv-1' />);
+  it('renders in create mode when no editJob is provided', async () => {
+    await renderDialog(<CreateTaskDialog visible={true} onClose={vi.fn()} conversationId='conv-1' />);
 
     expect(screen.getByTestId('modal-wrapper')).toBeInTheDocument();
     expect(screen.getByTestId('mock-form')).toBeInTheDocument();
   });
 
-  it('renders in edit mode when editJob is provided', () => {
+  it('renders in edit mode when editJob is provided', async () => {
     const editJob: ICronJob = {
       id: 'job-1',
       name: 'Existing Task',
@@ -1095,7 +1162,7 @@ describe('CreateTaskDialog - component behavior', () => {
       lastExecutionTime: Date.now(),
     };
 
-    render(<CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
+    await renderDialog(<CreateTaskDialog visible={true} onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
 
     expect(screen.getByTestId('modal-wrapper')).toBeInTheDocument();
   });
@@ -1277,7 +1344,7 @@ describe('CreateTaskDialog - advanced settings panel', () => {
     expect(screen.queryByTestId('cron-workspace-trigger')).not.toBeInTheDocument();
   });
 
-  it('clears the workspace via the close icon inside the picker', () => {
+  it('clears the workspace via the close icon inside the picker', async () => {
     localStorage.setItem('aionui:recent-workspaces', JSON.stringify(['/tmp/ws']));
 
     const editJob: ICronJob = {
@@ -1306,7 +1373,7 @@ describe('CreateTaskDialog - advanced settings panel', () => {
       lastExecutionTime: Date.now(),
     };
 
-    render(<CreateTaskDialog visible onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
+    await renderDialog(<CreateTaskDialog visible onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
 
     // Advanced open because workspace was set in agentConfig
     const workspaceTrigger = screen.getByTestId('cron-workspace-trigger');
@@ -1315,13 +1382,14 @@ describe('CreateTaskDialog - advanced settings panel', () => {
     expect(workspaceTrigger.querySelector('[data-testid="icon-close"]')).not.toBeNull();
 
     fireEvent.click(workspaceTrigger.querySelector('[data-testid="icon-close"]') as Element);
+    await flushDialogEffects();
 
     // After clearing, the trigger swaps back to the empty state affordance.
     expect(workspaceTrigger.querySelector('[data-testid="icon-close"]')).toBeNull();
     expect(workspaceTrigger.querySelector('[data-testid="icon-down"]')).not.toBeNull();
   });
 
-  it('opens advanced panel pre-expanded when editJob has a workspace', () => {
+  it('opens advanced panel pre-expanded when editJob has a workspace', async () => {
     const editJob: ICronJob = {
       id: 'job-pre-open',
       name: 'Task',
@@ -1348,7 +1416,7 @@ describe('CreateTaskDialog - advanced settings panel', () => {
       lastExecutionTime: Date.now(),
     };
 
-    render(<CreateTaskDialog visible onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
+    await renderDialog(<CreateTaskDialog visible onClose={vi.fn()} editJob={editJob} conversationId='conv-1' />);
 
     expect(screen.getByTestId('cron-workspace-trigger')).toBeInTheDocument();
   });

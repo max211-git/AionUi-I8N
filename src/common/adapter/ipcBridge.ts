@@ -28,6 +28,7 @@ import type {
   TProjectMemorySettings,
   UpdateProjectMemoryEntryInput,
 } from '../projectMemory';
+import type { ProjectAssetCategory, ProjectAssetSortOption, TProjectAsset } from '../projectAssets';
 
 export const shell = {
   openFile: bridge.buildProvider<void, string>('open-file'), // 使用系统默认程序打开文件
@@ -87,13 +88,13 @@ export const conversation = {
     }
   >('conversation.set-config'),
   confirmation: {
-    add: bridge.buildEmitter<IConfirmation<any> & { conversation_id: string }>('confirmation.add'),
-    update: bridge.buildEmitter<IConfirmation<any> & { conversation_id: string }>('confirmation.update'),
+    add: bridge.buildEmitter<IConfirmation<unknown> & { conversation_id: string }>('confirmation.add'),
+    update: bridge.buildEmitter<IConfirmation<unknown> & { conversation_id: string }>('confirmation.update'),
     confirm: bridge.buildProvider<
       IBridgeResponse,
-      { conversation_id: string; msg_id: string; data: any; callId: string }
+      { conversation_id: string; msg_id: string; data: unknown; callId: string }
     >('confirmation.confirm'),
-    list: bridge.buildProvider<IConfirmation<any>[], { conversation_id: string }>('confirmation.list'),
+    list: bridge.buildProvider<IConfirmation<unknown>[], { conversation_id: string }>('confirmation.list'),
     remove: bridge.buildEmitter<{ conversation_id: string; id: string }>('confirmation.remove'),
   },
   // Session-level approval memory for "always allow" decisions
@@ -551,7 +552,7 @@ export const mcpService = {
   >('mcp.check-oauth-status'),
   loginMcpOAuth: bridge.buildProvider<
     IBridgeResponse<{ success: boolean; error?: string }>,
-    { server: IMcpServer; config?: any }
+    { server: IMcpServer; config?: unknown }
   >('mcp.login-oauth'),
   logoutMcpOAuth: bridge.buildProvider<IBridgeResponse, string>('mcp.logout-oauth'),
   getAuthenticatedServers: bridge.buildProvider<IBridgeResponse<string[]>, void>('mcp.get-authenticated-servers'),
@@ -1366,14 +1367,28 @@ export const projectMemory = {
   create: bridge.buildProvider<TProjectMemoryEntry, { projectId: string; input: CreateProjectMemoryEntryInput }>(
     'project-memory.create'
   ),
-  update: bridge.buildProvider<
-    boolean,
-    { projectId: string; entryId: string; updates: UpdateProjectMemoryEntryInput }
-  >('project-memory.update'),
+  update: bridge.buildProvider<boolean, { projectId: string; entryId: string; updates: UpdateProjectMemoryEntryInput }>(
+    'project-memory.update'
+  ),
   remove: bridge.buildProvider<boolean, { projectId: string; entryId: string }>('project-memory.remove'),
   getSettings: bridge.buildProvider<TProjectMemorySettings, { projectId: string }>('project-memory.get-settings'),
   updateSettings: bridge.buildProvider<TProjectMemorySettings, { projectId: string; enabled: boolean }>(
     'project-memory.update-settings'
   ),
   getSummary: bridge.buildProvider<string, { projectId: string }>('project-memory.get-summary'),
+};
+
+export const projectAssets = {
+  list: bridge.buildProvider<
+    TProjectAsset[],
+    { projectId: string; category: ProjectAssetCategory; query?: string; sort?: ProjectAssetSortOption }
+  >('project-assets.list'),
+  listContextEnabled: bridge.buildProvider<TProjectAsset[], { projectId: string }>(
+    'project-assets.list-context-enabled'
+  ),
+  refresh: bridge.buildProvider<void, { projectId: string }>('project-assets.refresh'),
+  setContextEnabled: bridge.buildProvider<boolean, { projectId: string; assetId: string; enabled: boolean }>(
+    'project-assets.set-context-enabled'
+  ),
+  remove: bridge.buildProvider<boolean, { projectId: string; assetId: string }>('project-assets.remove'),
 };

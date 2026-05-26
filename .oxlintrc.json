@@ -67,6 +67,7 @@
     "public/",
     "resources/",
     "docs/",
+    "index.js",
     "config/webpack/",
     "scripts/",
     "src/agent/gemini/cli/",

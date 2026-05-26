@@ -7,6 +7,45 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AcpConnection } from '../../src/process/agent/acp/AcpConnection';
 import { AcpAgent } from '../../src/process/agent/acp/index';
+import type { AcpAgentConfig } from '../../src/process/agent/acp/index';
+
+type PendingRequest = {
+  resolve: ReturnType<typeof vi.fn>;
+  reject: ReturnType<typeof vi.fn>;
+  timeoutId?: ReturnType<typeof setTimeout>;
+  method: string;
+  isPaused: boolean;
+  startTime: number;
+  timeoutDuration: number;
+};
+
+type PendingPermission = {
+  resolve: ReturnType<typeof vi.fn>;
+  reject: ReturnType<typeof vi.fn>;
+};
+
+type AcpConnectionTestState = AcpConnection & {
+  sessionId?: string;
+  backend: string;
+  child: { stdin: { write: ReturnType<typeof vi.fn> }; killed: boolean; pid: number };
+  promptTimeoutMs: number;
+  pendingRequests: Map<number, PendingRequest>;
+  handlePromptTimeout: (requestId: number, request: PendingRequest) => void;
+  pauseRequestTimeout: (requestId: number) => void;
+  resumeRequestTimeout: (requestId: number) => void;
+};
+
+type AcpAgentTestState = AcpAgent & {
+  connection: AcpConnection;
+  pendingPermissions: Map<string | number, PendingPermission>;
+  onStreamEvent: ReturnType<typeof vi.fn>;
+  statusMessageId: string | null;
+  handleDisconnect: (details: { code: number | null; signal: string | null }) => void;
+  handleFileOperation: (payload: { method: string; path: string; sessionId: string }) => void;
+};
+
+const getConnectionState = (conn: AcpConnection): AcpConnectionTestState => conn as unknown as AcpConnectionTestState;
+const getAgentState = (agent: AcpAgent): AcpAgentTestState => agent as unknown as AcpAgentTestState;
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -14,9 +53,10 @@ import { AcpAgent } from '../../src/process/agent/acp/index';
 function makeConnection(): AcpConnection {
   const conn = new AcpConnection();
   // Set up internal state to simulate an active session
-  (conn as any).sessionId = 'test-session';
-  (conn as any).backend = 'claude';
-  (conn as any).child = {
+  const state = getConnectionState(conn);
+  state.sessionId = 'test-session';
+  state.backend = 'claude';
+  state.child = {
     stdin: { write: vi.fn() },
     killed: false,
     pid: 12345,
@@ -30,18 +70,18 @@ describe('AcpConnection.setPromptTimeout', () => {
   it('should set timeout in milliseconds', () => {
     const conn = makeConnection();
     conn.setPromptTimeout(120);
-    expect((conn as any).promptTimeoutMs).toBe(120000);
+    expect(getConnectionState(conn).promptTimeoutMs).toBe(120000);
   });
 
   it('should enforce minimum of 30 seconds', () => {
     const conn = makeConnection();
     conn.setPromptTimeout(5);
-    expect((conn as any).promptTimeoutMs).toBe(30000);
+    expect(getConnectionState(conn).promptTimeoutMs).toBe(30000);
   });
 
   it('should default to 300 seconds', () => {
     const conn = new AcpConnection();
-    expect((conn as any).promptTimeoutMs).toBe(300000);
+    expect(getConnectionState(conn).promptTimeoutMs).toBe(300000);
   });
 });
 
@@ -50,7 +90,7 @@ describe('AcpConnection.setPromptTimeout', () => {
 describe('AcpConnection.cancelPrompt', () => {
   it('should send session/cancel notification via stdin', () => {
     const conn = makeConnection();
-    const writeFn = (conn as any).child.stdin.write;
+    const writeFn = getConnectionState(conn).child.stdin.write;
 
     conn.cancelPrompt();
 
@@ -63,7 +103,7 @@ describe('AcpConnection.cancelPrompt', () => {
   it('should resolve and clear all pending session/prompt requests', () => {
     const conn = makeConnection();
     const resolveFn = vi.fn();
-    const pendingRequests = (conn as any).pendingRequests as Map<number, any>;
+    const pendingRequests = getConnectionState(conn).pendingRequests;
 
     // Add a session/prompt request
     const timeoutId = setTimeout(() => {}, 100000);
@@ -145,9 +185,9 @@ describe('AcpConnection timeout handling', () => {
       startTime: Date.now(),
       timeoutDuration: 60000,
     };
-    (conn as any).pendingRequests.set(99, request);
+    getConnectionState(conn).pendingRequests.set(99, request);
 
-    (conn as any).handlePromptTimeout(99, request);
+    getConnectionState(conn).handlePromptTimeout(99, request);
 
     expect(cancelSpy).not.toHaveBeenCalled();
     expect(request.reject).toHaveBeenCalledWith(
@@ -188,7 +228,7 @@ describe('AcpAgent permission request timeout', () => {
 
   it('should NOT auto-reject permission requests within 30 minutes', () => {
     const { agent } = makeAgent();
-    const pendingPermissions = (agent as any).pendingPermissions as Map<string, any>;
+    const pendingPermissions = getAgentState(agent).pendingPermissions;
 
     // Simulate a permission request being stored
     const rejectFn = vi.fn();
@@ -236,7 +276,7 @@ describe('AcpConnection resume timeout after permission pause', () => {
 
   it('should reset startTime when resuming from a permission pause', () => {
     const conn = makeConnection();
-    const pendingRequests = (conn as any).pendingRequests as Map<number, any>;
+    const pendingRequests = getConnectionState(conn).pendingRequests;
 
     const request = {
       resolve: vi.fn(),
@@ -250,14 +290,14 @@ describe('AcpConnection resume timeout after permission pause', () => {
     pendingRequests.set(1, request);
 
     // Pause the request (simulating permission dialog shown)
-    (conn as any).pauseRequestTimeout(1);
+    getConnectionState(conn).pauseRequestTimeout(1);
     expect(request.isPaused).toBe(true);
 
     // Advance time beyond the original timeout duration
     vi.advanceTimersByTime(600000); // 10 minutes
 
     // Resume the request (simulating permission dialog resolved)
-    (conn as any).resumeRequestTimeout(1);
+    getConnectionState(conn).resumeRequestTimeout(1);
 
     // Should NOT have timed out — startTime was reset
     expect(request.isPaused).toBe(false);
@@ -278,21 +318,24 @@ describe('AcpConnection resume timeout after permission pause', () => {
 function makeAgent() {
   const onStreamEvent = vi.fn();
   const onSignalEvent = vi.fn();
-  const agent = new AcpAgent({
+  const config: AcpAgentConfig = {
     id: 'test-agent',
     onStreamEvent,
     onSignalEvent,
-    extra: { backend: 'claude' as any, workspace: '/tmp' },
-  } as any);
+    backend: 'claude',
+    workingDir: '/tmp',
+    extra: { backend: 'claude', workspace: '/tmp' },
+  };
+  const agent = new AcpAgent(config);
   // Mock the connection's cancelPrompt to avoid real stdin writes
-  vi.spyOn((agent as any).connection, 'cancelPrompt').mockImplementation(() => {});
+  vi.spyOn(getAgentState(agent).connection, 'cancelPrompt').mockImplementation(() => {});
   return { agent, onSignalEvent };
 }
 
 describe('AcpAgent.cancelPrompt', () => {
   it('should call connection.cancelPrompt', () => {
     const { agent } = makeAgent();
-    const connCancelSpy = (agent as any).connection.cancelPrompt;
+    const connCancelSpy = getAgentState(agent).connection.cancelPrompt;
 
     agent.cancelPrompt();
 
@@ -301,7 +344,7 @@ describe('AcpAgent.cancelPrompt', () => {
 
   it('should reject all pending permission dialogs', () => {
     const { agent } = makeAgent();
-    const pendingPermissions = (agent as any).pendingPermissions as Map<number, any>;
+    const pendingPermissions = getAgentState(agent).pendingPermissions;
     const rejectFn1 = vi.fn();
     const rejectFn2 = vi.fn();
 
@@ -335,7 +378,7 @@ describe('AcpAgent.cancelPrompt', () => {
 describe('AcpAgent.kill', () => {
   it('should call connection.disconnect', async () => {
     const { agent } = makeAgent();
-    const disconnectSpy = vi.spyOn((agent as any).connection, 'disconnect').mockResolvedValue(undefined);
+    const disconnectSpy = vi.spyOn(getAgentState(agent).connection, 'disconnect').mockResolvedValue(undefined);
 
     await agent.kill();
 
@@ -344,8 +387,8 @@ describe('AcpAgent.kill', () => {
 
   it('should emit finish stream event', async () => {
     const { agent } = makeAgent();
-    vi.spyOn((agent as any).connection, 'disconnect').mockResolvedValue(undefined);
-    const onStreamEvent = (agent as any).onStreamEvent;
+    vi.spyOn(getAgentState(agent).connection, 'disconnect').mockResolvedValue(undefined);
+    const onStreamEvent = getAgentState(agent).onStreamEvent;
 
     await agent.kill();
 
@@ -367,14 +410,22 @@ describe('AcpAgent disconnect messaging', () => {
       id: 'idle-agent',
       onStreamEvent,
       onSignalEvent,
-      extra: { backend: 'opencode' as any, workspace: '/tmp' },
-    } as any);
+      backend: 'opencode',
+      workingDir: '/tmp',
+      extra: { backend: 'opencode', workspace: '/tmp' },
+    });
 
-    (agent as any).handleDisconnect({ code: null, signal: 'SIGTERM' });
+    getAgentState(agent).handleDisconnect({ code: null, signal: 'SIGTERM' });
 
     // Should NOT emit disconnected status messages via onStreamEvent
     const statusCalls = onStreamEvent.mock.calls.filter(
-      ([evt]: [any]) => evt.type === 'agent_status' && evt.data?.status === 'disconnected'
+      ([evt]: [unknown]) =>
+        typeof evt === 'object' &&
+        evt !== null &&
+        'type' in evt &&
+        'data' in evt &&
+        (evt as { type?: string; data?: { status?: string } }).type === 'agent_status' &&
+        (evt as { data?: { status?: string } }).data?.status === 'disconnected'
     );
     expect(statusCalls).toHaveLength(0);
 
@@ -395,14 +446,22 @@ describe('AcpAgent disconnect messaging', () => {
       id: 'disconnect-agent',
       onStreamEvent,
       onSignalEvent,
-      extra: { backend: 'opencode' as any, workspace: '/tmp' },
-    } as any);
+      backend: 'opencode',
+      workingDir: '/tmp',
+      extra: { backend: 'opencode', workspace: '/tmp' },
+    });
 
-    (agent as any).handleDisconnect({ code: null, signal: 'SIGTERM' });
+    getAgentState(agent).handleDisconnect({ code: null, signal: 'SIGTERM' });
 
     // Should NOT emit disconnected status messages via onStreamEvent
     const statusCalls = onStreamEvent.mock.calls.filter(
-      ([evt]: [any]) => evt.type === 'agent_status' && evt.data?.status === 'disconnected'
+      ([evt]: [unknown]) =>
+        typeof evt === 'object' &&
+        evt !== null &&
+        'type' in evt &&
+        'data' in evt &&
+        (evt as { type?: string; data?: { status?: string } }).type === 'agent_status' &&
+        (evt as { data?: { status?: string } }).data?.status === 'disconnected'
     );
     expect(statusCalls).toHaveLength(0);
 
@@ -423,18 +482,20 @@ describe('AcpAgent disconnect messaging', () => {
       id: 'cleanup-agent',
       onStreamEvent,
       onSignalEvent,
-      extra: { backend: 'opencode' as any, workspace: '/tmp' },
-    } as any);
+      backend: 'opencode',
+      workingDir: '/tmp',
+      extra: { backend: 'opencode', workspace: '/tmp' },
+    });
 
     // Set up some internal state
-    (agent as any).pendingPermissions.set('perm-1', { resolve: vi.fn(), reject: vi.fn() });
-    (agent as any).statusMessageId = 'some-status-id';
+    getAgentState(agent).pendingPermissions.set('perm-1', { resolve: vi.fn(), reject: vi.fn() });
+    getAgentState(agent).statusMessageId = 'some-status-id';
 
-    (agent as any).handleDisconnect({ code: null, signal: 'SIGTERM' });
+    getAgentState(agent).handleDisconnect({ code: null, signal: 'SIGTERM' });
 
     // Internal state should be cleared
-    expect((agent as any).pendingPermissions.size).toBe(0);
-    expect((agent as any).statusMessageId).toBeNull();
+    expect(getAgentState(agent).pendingPermissions.size).toBe(0);
+    expect(getAgentState(agent).statusMessageId).toBeNull();
   });
 });
 
@@ -444,10 +505,12 @@ describe('AcpAgent file operation presentation', () => {
     const agent = new AcpAgent({
       id: 'file-op-agent',
       onStreamEvent,
-      extra: { backend: 'codex' as any, workspace: '/tmp' },
-    } as any);
+      backend: 'codex',
+      workingDir: '/tmp',
+      extra: { backend: 'codex', workspace: '/tmp' },
+    });
 
-    (agent as any).handleFileOperation({
+    getAgentState(agent).handleFileOperation({
       method: 'fs/read_text_file',
       path: '/tmp/example.md',
       sessionId: 'session-1',

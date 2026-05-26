@@ -9,6 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockWarmupInvoke = vi.fn().mockResolvedValue(undefined);
 const mockSetSendBoxHandler = vi.fn();
 const mockOnPasteFocus = vi.fn();
+const mockI18n = { language: 'en-US' };
+const mockTranslate = (key: string) => key;
 
 vi.mock('@/common', () => ({
   ipcBridge: {
@@ -148,10 +150,8 @@ vi.mock('@/renderer/utils/ui/focus', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: {
-      language: 'en-US',
-    },
+    t: mockTranslate,
+    i18n: mockI18n,
   }),
 }));
 
@@ -165,8 +165,9 @@ vi.mock('@arco-design/web-react', () => ({
       onFocus,
       onBlur,
       value,
+      autoSize: _autoSize,
       ...props
-    }: React.ComponentProps<'textarea'> & { value?: string }) =>
+    }: React.ComponentProps<'textarea'> & { value?: string; autoSize?: unknown }) =>
       React.createElement('textarea', {
         onKeyDown,
         onFocus,

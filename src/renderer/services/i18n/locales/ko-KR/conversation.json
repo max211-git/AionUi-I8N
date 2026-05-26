@@ -92,6 +92,11 @@
     "projectMemoryTypeProject": "프로젝트 규칙",
     "projectMemoryTypeReference": "참고 메모",
     "projectMemoryTypeFeedback": "피드백 축적",
+    "projectAssetsCategoryImages": "Images",
+    "projectAssetsCategoryDocuments": "Documents",
+    "projectAssetsCategoryPdfs": "PDFs",
+    "projectAssetsCategoryCodeText": "Code & Text",
+    "projectAssetsCategoryOther": "Other files",
     "deleteSuccess": "삭제되었습니다",
     "deleteFailed": "삭제에 실패했습니다"
   },

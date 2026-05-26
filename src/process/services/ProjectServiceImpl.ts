@@ -15,7 +15,10 @@ export interface IProjectService {
   listProjects(): Promise<TProject[]>;
   getProject(id: string): Promise<TProject | null>;
   createProject(params: { name: string; rootPath?: string }): Promise<TProject>;
-  updateProject(id: string, updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt' | 'sortOrder'>>): Promise<boolean>;
+  updateProject(
+    id: string,
+    updates: Partial<Pick<TProject, 'name' | 'rootPath' | 'pinnedAt' | 'sortOrder'>>
+  ): Promise<boolean>;
   removeProject(id: string): Promise<boolean>;
 }
 

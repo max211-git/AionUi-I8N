@@ -125,22 +125,34 @@ vi.mock('@process/agent/aionrs', () => ({
 
 import { AionrsManager } from '@/process/task/AionrsManager';
 
-function createManager(overrides?: Record<string, unknown>): AionrsManager {
-  const data = {
+type AionrsManagerInput = ConstructorParameters<typeof AionrsManager>[0];
+type AionrsManagerModel = ConstructorParameters<typeof AionrsManager>[1];
+type AionrsManagerTestState = AionrsManager & {
+  agent: { send: typeof mockAgentSend } | null;
+  agentReady: Promise<void>;
+  startedWithResume: boolean;
+};
+
+const getManagerState = (manager: AionrsManager): AionrsManagerTestState =>
+  manager as unknown as AionrsManagerTestState;
+
+function createManager(overrides?: Partial<AionrsManagerInput>): AionrsManager {
+  const data: AionrsManagerInput = {
     workspace: '/test/workspace',
     model: { name: 'test-provider', useModel: 'test-model', baseUrl: '', platform: 'test' },
     conversation_id: 'conv-aionrs-1',
     ...overrides,
   };
-  return new AionrsManager(data as any, data.model as any);
+  return new AionrsManager(data, data.model as AionrsManagerModel);
 }
 
 function primeManagerForSend(manager: AionrsManager, startedWithResume = false): void {
-  (manager as any).agent = {
+  const state = getManagerState(manager);
+  state.agent = {
     send: mockAgentSend,
   };
-  (manager as any).agentReady = Promise.resolve();
-  (manager as any).startedWithResume = startedWithResume;
+  state.agentReady = Promise.resolve();
+  state.startedWithResume = startedWithResume;
 }
 
 describe('AionrsManager project memory prompt injection', () => {

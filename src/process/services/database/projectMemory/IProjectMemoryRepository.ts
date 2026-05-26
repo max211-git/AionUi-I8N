@@ -4,7 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { CreateProjectMemoryEntryInput, TProjectMemoryEntry, TProjectMemorySettings, UpdateProjectMemoryEntryInput } from '@/common/projectMemory';
+import type {
+  CreateProjectMemoryEntryInput,
+  TProjectMemoryEntry,
+  TProjectMemorySettings,
+  UpdateProjectMemoryEntryInput,
+} from '@/common/projectMemory';
 
 export interface IProjectMemoryRepository {
   listEntries(userId: string, projectId: string): Promise<TProjectMemoryEntry[]>;

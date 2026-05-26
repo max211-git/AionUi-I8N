@@ -105,11 +105,13 @@ vi.mock('@arco-design/web-react', () => {
       value,
       onChange,
       onPressEnter,
+      allowClear: _allowClear,
       ...props
     }: {
       value: string;
       onChange: (val: string) => void;
       onPressEnter?: () => void;
+      allowClear?: unknown;
       [key: string]: unknown;
     }) => (
       <input

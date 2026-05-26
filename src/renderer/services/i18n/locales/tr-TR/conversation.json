@@ -92,6 +92,11 @@
     "projectMemoryTypeProject": "Proje kuralı",
     "projectMemoryTypeReference": "Referans notu",
     "projectMemoryTypeFeedback": "Geri bildirim birikimi",
+    "projectAssetsCategoryImages": "Images",
+    "projectAssetsCategoryDocuments": "Documents",
+    "projectAssetsCategoryPdfs": "PDFs",
+    "projectAssetsCategoryCodeText": "Code & Text",
+    "projectAssetsCategoryOther": "Other files",
     "deleteSuccess": "Başarıyla silindi",
     "deleteFailed": "Silme başarısız oldu"
   },

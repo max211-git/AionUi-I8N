@@ -39,43 +39,43 @@ vi.mock('@icon-park/react', () => ({
   Plus: () => <span>plus-icon</span>,
 }));
 
-vi.mock('@arco-design/web-react', () => {
-  const ModalComponent = ({
-    children,
-    visible,
-    title,
-    footer,
-    onOk,
-    onCancel,
-    okText,
-    cancelText,
-  }: {
-    children?: React.ReactNode;
-    visible?: boolean;
-    title?: React.ReactNode;
-    footer?: React.ReactNode;
-    onOk?: () => void;
-    onCancel?: () => void;
-    okText?: React.ReactNode;
-    cancelText?: React.ReactNode;
-  }) => {
-    if (!visible) {
-      return null;
-    }
-    return (
-      <div>
-        {title ? <div>{title}</div> : null}
-        <div>{children}</div>
-        {footer === null ? null : (
-          <div>
-            {cancelText ? <button onClick={onCancel}>{cancelText}</button> : null}
-            {okText ? <button onClick={onOk}>{okText}</button> : null}
-          </div>
-        )}
-      </div>
-    );
-  };
+function ModalComponent({
+  children,
+  visible,
+  title,
+  footer,
+  onOk,
+  onCancel,
+  okText,
+  cancelText,
+}: {
+  children?: React.ReactNode;
+  visible?: boolean;
+  title?: React.ReactNode;
+  footer?: React.ReactNode;
+  onOk?: () => void;
+  onCancel?: () => void;
+  okText?: React.ReactNode;
+  cancelText?: React.ReactNode;
+}) {
+  if (!visible) {
+    return null;
+  }
+  return (
+    <div>
+      {title ? <div>{title}</div> : null}
+      <div>{children}</div>
+      {footer === null ? null : (
+        <div>
+          {cancelText ? <button onClick={onCancel}>{cancelText}</button> : null}
+          {okText ? <button onClick={onOk}>{okText}</button> : null}
+        </div>
+      )}
+    </div>
+  );
+}
 
+vi.mock('@arco-design/web-react', () => {
   return {
     Button: ({
       children,

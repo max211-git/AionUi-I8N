@@ -58,6 +58,12 @@ repos:
         language: system
         files: \.(ts|tsx|js|jsx)$
         pass_filenames: false
+      - id: oxlint-no-new-warnings
+        name: Oxlint No New Warnings
+        entry: node scripts/check-no-new-lint-warnings.mjs
+        language: system
+        files: \.(ts|tsx|js|jsx)$
+        pass_filenames: true
 
   # Oxfmt (replaces Prettier — auto-fixes staged files only)
   - repo: local

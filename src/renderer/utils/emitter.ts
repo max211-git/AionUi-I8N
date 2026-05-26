@@ -58,6 +58,7 @@ interface EventTypes {
   'sendbox.reply.clear': void; // clear reply quote
   'staroffice.install.request': [{ conversationId: string; text: string; detectedUrl?: string | null }];
   'staroffice.install.finished': [{ conversationId: string }];
+  'project.assets.changed': [string | undefined];
 }
 
 export const emitter = new EventEmitter<EventTypes>();

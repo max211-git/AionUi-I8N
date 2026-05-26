@@ -41,15 +41,22 @@ const PwaPullToRefresh: React.FC = () => {
       return null;
     };
 
+    const getScrollTop = (node: Element | null): number => {
+      if (!node || !('scrollTop' in node)) {
+        return 0;
+      }
+      return typeof node.scrollTop === 'number' ? node.scrollTop : 0;
+    };
+
     const isAtPageTop = (startTarget: EventTarget | null): boolean => {
       const root = (document.scrollingElement as HTMLElement) || document.documentElement;
       const layout = document.querySelector('.layout-content') as HTMLElement | null;
       const nearest = getNearestScrollable(startTarget);
       const values: number[] = [
         typeof window.scrollY === 'number' ? window.scrollY : 0,
-        root && typeof (root as any).scrollTop === 'number' ? (root as any).scrollTop : 0,
-        layout && typeof (layout as any).scrollTop === 'number' ? (layout as any).scrollTop : 0,
-        nearest && typeof (nearest as any).scrollTop === 'number' ? (nearest as any).scrollTop : 0,
+        getScrollTop(root),
+        getScrollTop(layout),
+        getScrollTop(nearest),
       ];
       const topMost = Math.max.apply(null, values);
       return topMost <= 0;

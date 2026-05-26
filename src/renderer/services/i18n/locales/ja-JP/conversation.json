@@ -92,6 +92,11 @@
     "projectMemoryTypeProject": "プロジェクト規約",
     "projectMemoryTypeReference": "参照メモ",
     "projectMemoryTypeFeedback": "フィードバック蓄積",
+    "projectAssetsCategoryImages": "Images",
+    "projectAssetsCategoryDocuments": "Documents",
+    "projectAssetsCategoryPdfs": "PDFs",
+    "projectAssetsCategoryCodeText": "Code & Text",
+    "projectAssetsCategoryOther": "Other files",
     "deleteSuccess": "削除しました",
     "deleteFailed": "削除に失敗しました"
   },

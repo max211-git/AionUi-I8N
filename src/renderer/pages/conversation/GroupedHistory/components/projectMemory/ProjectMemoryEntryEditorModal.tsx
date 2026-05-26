@@ -106,7 +106,9 @@ const ProjectMemoryEntryEditorModal: React.FC<ProjectMemoryEntryEditorModalProps
       <Modal
         title={
           title ||
-          (editingEntry ? t('conversation.history.projectMemoryEditEntry') : t('conversation.history.projectMemoryAddEntry'))
+          (editingEntry
+            ? t('conversation.history.projectMemoryEditEntry')
+            : t('conversation.history.projectMemoryAddEntry'))
         }
         visible={visible}
         onCancel={onCancel}

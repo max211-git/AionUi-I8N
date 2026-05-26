@@ -57,6 +57,7 @@
   "openInPanelTooltip": "Просмотреть в панели предпросмотра",
   "mermaidTitle": "Диаграмма Mermaid",
   "largeTextTruncatedHint": "Режим предпросмотра больших файлов: показано первых {{count}} символов для производительности.",
+  "videoUnavailable": "Video preview is unavailable",
   "errors": {
     "missingFilePath": "Путь к файлу отсутствует",
     "openWithoutPath": "Невозможно открыть: путь к файлу не указан",

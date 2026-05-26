@@ -39,6 +39,7 @@ const AtFileMenu: React.FC<AtFileMenuProps> = ({
       ) : (
         items.map((item, index) => {
           const isActive = index === activeIndex;
+          const sourceLabel = item.sourceLabel;
           return (
             <div
               key={item.path}
@@ -56,8 +57,26 @@ const AtFileMenu: React.FC<AtFileMenuProps> = ({
                 onSelectItem(item);
               }}
             >
-              <div className='text-13px font-medium text-t-primary'>{item.name}</div>
-              <div className='text-12px text-t-secondary break-all'>{item.relativePath || item.path}</div>
+              <div className='flex items-start gap-10px'>
+                {item.thumbnailUrl ? (
+                  <img
+                    src={item.thumbnailUrl}
+                    alt={item.name}
+                    className='mt-2px h-32px w-32px shrink-0 rounded-8px object-cover'
+                  />
+                ) : null}
+                <div className='min-w-0 flex-1'>
+                  <div className='flex items-center gap-8px'>
+                    <div className='min-w-0 flex-1 text-13px font-medium text-t-primary'>{item.name}</div>
+                    {sourceLabel ? (
+                      <span className='shrink-0 rounded-999px bg-fill-2 px-6px py-2px text-11px text-t-secondary'>
+                        {sourceLabel}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className='text-12px text-t-secondary break-all'>{item.relativePath || item.path}</div>
+                </div>
+              </div>
             </div>
           );
         })

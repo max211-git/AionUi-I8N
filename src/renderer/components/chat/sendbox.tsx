@@ -5,6 +5,7 @@
  */
 
 import { ipcBridge } from '@/common';
+import type { TProjectAsset } from '@/common/projectAssets';
 import AtFileMenu from '@/renderer/components/chat/AtFileMenu';
 import BtwOverlay from '@/renderer/components/chat/BtwOverlay';
 import { useInputFocusRing } from '@/renderer/hooks/chat/useInputFocusRing';
@@ -39,7 +40,6 @@ import { useUploadState } from '@renderer/hooks/file/useUploadState';
 import UploadProgressBar from '@renderer/components/media/UploadProgressBar';
 import { allSupportedExts } from '@renderer/services/FileService';
 import SpeechInputButton from '@/renderer/components/chat/SpeechInputButton';
-import { appendSpeechTranscript } from '@/renderer/hooks/system/useSpeechInput';
 import { getConversationInputHistory, isCaretOnFirstLine } from '@/renderer/utils/chat/messageHistory';
 import './sendbox.css';
 
@@ -49,6 +49,23 @@ const constVoid = (): void => undefined;
 const MAX_SINGLE_LINE_CHARACTERS = 800;
 const BTW_COMMAND_RE = /^\/btw(?:\s+([\s\S]*))?$/i;
 const AT_FILE_HIGHLIGHT_COLOR = theme.Color.PrimaryColor;
+const PROJECT_ASSET_IMAGE_CATEGORIES = new Set<TProjectAsset['category']>(['images']);
+
+const buildLocalFileUrl = (filePath: string): string => encodeURI(`file://${filePath}`);
+
+const appendSpeechTranscript = (base: string, transcript: string): string => {
+  const normalizedTranscript = transcript.trim();
+  if (!normalizedTranscript) {
+    return base;
+  }
+
+  const normalizedBase = base.trimEnd();
+  if (!normalizedBase) {
+    return normalizedTranscript;
+  }
+
+  return `${normalizedBase}\n${normalizedTranscript}`;
+};
 
 const getSelectedItemMatchKeys = (item: FileSelectionItem): string[] => {
   if (typeof item === 'string') {
@@ -366,11 +383,11 @@ const SendBox: React.FC<{
   const btwCommand = useBtwCommand(conversationContext?.conversationId, enableBtw);
   const btwQuestion = useMemo(() => extractBtwQuestion(input), [input]);
   const activeAtFileQuery = useMemo(() => {
-    if (!conversationContext?.workspace) {
+    if (!conversationContext?.workspace && !conversationContext?.projectId) {
       return null;
     }
     return getActiveAtFileQuery(input, caretPosition);
-  }, [caretPosition, conversationContext?.workspace, input]);
+  }, [caretPosition, conversationContext?.projectId, conversationContext?.workspace, input]);
   const activeAtFileTokenKey = useMemo(() => {
     if (!activeAtFileQuery) {
       return null;
@@ -378,11 +395,11 @@ const SendBox: React.FC<{
     return `${activeAtFileQuery.start}:${activeAtFileQuery.rawQuery}`;
   }, [activeAtFileQuery]);
   const atFileSessionKey = useMemo(() => {
-    if (!conversationContext?.workspace || !activeAtFileQuery) {
+    if ((!conversationContext?.workspace && !conversationContext?.projectId) || !activeAtFileQuery) {
       return null;
     }
-    return `${conversationContext.workspace}:${activeAtFileQuery.start}`;
-  }, [activeAtFileQuery, conversationContext?.workspace]);
+    return `${conversationContext?.workspace || ''}:${conversationContext?.projectId || ''}:${activeAtFileQuery.start}`;
+  }, [activeAtFileQuery, conversationContext?.projectId, conversationContext?.workspace]);
   const allAtFileQueries = useMemo(() => getAllAtFileQueries(input), [input]);
   const deferredAtFileQuery = useDeferredValue(activeAtFileQuery?.query ?? '');
   const inputHistory = useMemo(
@@ -494,7 +511,7 @@ const SendBox: React.FC<{
 
   const isCommandMenuOpen = conversationExport.isOpen || slashController.isOpen;
   const isAtFileMenuOpen =
-    Boolean(conversationContext?.workspace) &&
+    Boolean(conversationContext?.workspace || conversationContext?.projectId) &&
     Boolean(activeAtFileQuery) &&
     activeAtFileTokenKey !== dismissedAtFileToken &&
     !isCommandMenuOpen;
@@ -646,7 +663,7 @@ const SendBox: React.FC<{
   };
 
   useEffect(() => {
-    if (!isAtFileMenuOpen || !conversationContext?.workspace || !atFileSessionKey) {
+    if (!isAtFileMenuOpen || !atFileSessionKey) {
       fetchedAtFileSessionKeyRef.current = null;
       setWorkspaceMentionItems([]);
       setWorkspaceMentionLoading(false);
@@ -661,24 +678,56 @@ const SendBox: React.FC<{
     fetchedAtFileSessionKeyRef.current = atFileSessionKey;
     setWorkspaceMentionLoading(true);
 
-    void ipcBridge.fs.listWorkspaceFiles
-      .invoke({ root: conversationContext.workspace })
-      .then((result) => {
+    const loadMentionItems = async () => {
+      const mentionItems: FileOrFolderItem[] = [];
+
+      if (conversationContext?.workspace) {
+        const workspaceFiles = await ipcBridge.fs.listWorkspaceFiles.invoke({ root: conversationContext.workspace });
+        mentionItems.push(
+          ...workspaceFiles.map((item) => ({
+            path: item.fullPath,
+            name: item.name,
+            isFile: true,
+            relativePath: item.relativePath || undefined,
+            source: 'workspace' as const,
+            sourceLabel: t('conversation.workspace.title'),
+          }))
+        );
+      }
+
+      if (conversationContext?.projectId) {
+        const projectAssets = await ipcBridge.projectAssets.listContextEnabled.invoke({
+          projectId: conversationContext.projectId,
+        });
+        mentionItems.push(
+          ...projectAssets.map((asset) => ({
+            path: asset.absolutePath,
+            name: asset.fileName,
+            isFile: true,
+            relativePath: asset.relativePath,
+            source: 'project-asset' as const,
+            sourceLabel: t('conversation.history.projectAssetsContextSource'),
+            thumbnailUrl: PROJECT_ASSET_IMAGE_CATEGORIES.has(asset.category)
+              ? buildLocalFileUrl(asset.absolutePath)
+              : undefined,
+          }))
+        );
+      }
+
+      return mentionItems;
+    };
+
+    void loadMentionItems()
+      .then((items) => {
         if (cancelled) {
           return;
         }
-        const files = result.map((item) => ({
-          path: item.fullPath,
-          name: item.name,
-          isFile: true,
-          relativePath: item.relativePath || undefined,
-        }));
-        setWorkspaceMentionItems(files);
+        setWorkspaceMentionItems(items);
       })
       .catch((error) => {
         if (!cancelled) {
           fetchedAtFileSessionKeyRef.current = null;
-          console.warn('[SendBox] Failed to load workspace file mentions:', error);
+          console.warn('[SendBox] Failed to load @file mentions:', error);
           setWorkspaceMentionItems([]);
         }
       })
@@ -691,7 +740,7 @@ const SendBox: React.FC<{
     return () => {
       cancelled = true;
     };
-  }, [atFileSessionKey, conversationContext?.workspace, isAtFileMenuOpen]);
+  }, [atFileSessionKey, conversationContext?.projectId, conversationContext?.workspace, isAtFileMenuOpen, t]);
 
   useEffect(() => {
     if (!activeAtFileTokenKey) {

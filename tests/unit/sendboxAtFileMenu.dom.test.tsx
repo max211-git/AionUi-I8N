@@ -1,11 +1,22 @@
 import SendBox from '@/renderer/components/chat/sendbox';
-import { ConversationProvider } from '@/renderer/hooks/context/ConversationContext';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockWarmupInvoke = vi.fn().mockResolvedValue(undefined);
 const mockListWorkspaceFilesInvoke = vi.fn();
+const mockListContextEnabledInvoke = vi.fn().mockResolvedValue([]);
+const mockSetSendBoxHandler = vi.fn();
+const mockPreviewState = {
+  setSendBoxHandler: mockSetSendBoxHandler,
+  domSnippets: [] as Array<{ id: string; tag: string; html: string }>,
+  removeDomSnippet: vi.fn(),
+  clearDomSnippets: vi.fn(),
+};
+const mockI18n = {
+  language: 'en-US',
+};
+const mockTranslate = (key: string, options?: { defaultValue?: string }) => options?.defaultValue || key;
 
 vi.mock('@/common', () => ({
   ipcBridge: {
@@ -19,6 +30,11 @@ vi.mock('@/common', () => ({
         invoke: (...args: unknown[]) => mockListWorkspaceFilesInvoke(...args),
       },
     },
+    projectAssets: {
+      listContextEnabled: {
+        invoke: (...args: unknown[]) => mockListContextEnabledInvoke(...args),
+      },
+    },
   },
 }));
 
@@ -27,6 +43,14 @@ vi.mock('@/renderer/utils/emitter', () => ({
     emit: vi.fn(),
   },
   useAddEventListener: vi.fn(),
+}));
+
+vi.mock('@/renderer/hooks/context/ConversationContext', () => ({
+  useConversationContextSafe: () => ({
+    conversationId: 'conv-1',
+    workspace: '/workspace',
+    type: 'gemini',
+  }),
 }));
 
 vi.mock('@/renderer/hooks/context/LayoutContext', () => ({
@@ -56,7 +80,11 @@ vi.mock('@/renderer/hooks/file/usePasteService', () => ({
 }));
 
 vi.mock('@renderer/hooks/ui/useLatestRef', () => ({
-  useLatestRef: (value: unknown) => ({ current: value }),
+  useLatestRef: <T,>(value: T) => {
+    const ref = useRef(value);
+    ref.current = value;
+    return ref;
+  },
 }));
 
 vi.mock('@renderer/hooks/file/useUploadState', () => ({
@@ -94,12 +122,11 @@ vi.mock('@/renderer/components/chat/BtwOverlay/useBtwCommand', () => ({
 }));
 
 vi.mock('@/renderer/pages/conversation/Preview', () => ({
-  usePreviewContext: () => ({
-    setSendBoxHandler: vi.fn(),
-    domSnippets: [],
-    removeDomSnippet: vi.fn(),
-    clearDomSnippets: vi.fn(),
-  }),
+  usePreviewContext: () => mockPreviewState,
+}));
+
+vi.mock('@/renderer/pages/conversation/Messages/hooks', () => ({
+  useMessageList: () => [],
 }));
 
 vi.mock('@/renderer/hooks/chat/useSlashCommandController', () => ({
@@ -111,6 +138,14 @@ vi.mock('@/renderer/hooks/chat/useSlashCommandController', () => ({
     onSelectByIndex: vi.fn(),
     onKeyDown: vi.fn(() => false),
   }),
+}));
+
+vi.mock('@office-ai/platform', () => ({
+  theme: {
+    Color: {
+      PrimaryColor: '#1677ff',
+    },
+  },
 }));
 
 vi.mock('@/renderer/hooks/chat/useCompositionInput', () => ({
@@ -157,10 +192,8 @@ vi.mock('@/renderer/utils/ui/focus', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: { defaultValue?: string }) => options?.defaultValue || key,
-    i18n: {
-      language: 'en-US',
-    },
+    t: mockTranslate,
+    i18n: mockI18n,
   }),
 }));
 
@@ -176,6 +209,7 @@ vi.mock('@arco-design/web-react', () => ({
       onClick,
       onKeyUp,
       onSelect,
+      autoSize: _autoSize,
       value,
       ...props
     }: React.ComponentProps<'textarea'> & { value?: string }) =>
@@ -237,18 +271,16 @@ const SendBoxHarness: React.FC<{
   const [selectedWorkspaceItems, setSelectedWorkspaceItems] = useState<SelectionItem[]>(initialSelectedWorkspaceItems);
 
   return (
-    <ConversationProvider value={{ conversationId: 'conv-1', workspace: '/workspace', type: 'gemini' }}>
-      <div>
-        <div data-testid='selected-workspace-count'>{selectedWorkspaceItems.length}</div>
-        <SendBox
-          value={value}
-          onChange={setValue}
-          onSelectedWorkspaceItemsChange={setSelectedWorkspaceItems}
-          onSend={vi.fn().mockResolvedValue(undefined)}
-          selectedWorkspaceItems={selectedWorkspaceItems}
-        />
-      </div>
-    </ConversationProvider>
+    <div>
+      <div data-testid='selected-workspace-count'>{selectedWorkspaceItems.length}</div>
+      <SendBox
+        value={value}
+        onChange={setValue}
+        onSelectedWorkspaceItemsChange={setSelectedWorkspaceItems}
+        onSend={vi.fn().mockResolvedValue(undefined)}
+        selectedWorkspaceItems={selectedWorkspaceItems}
+      />
+    </div>
   );
 };
 

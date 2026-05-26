@@ -13,7 +13,7 @@ A project can contain:
 - regular chats
 - workspace chats
 - teams
-- future project assets and artifacts
+- project assets and artifacts
 
 A project may also have an optional project assets folder, but a project is **not** just a folder path. It is an organizational container in the app.
 
@@ -158,6 +158,48 @@ Inside a project, you may see placeholders such as:
 
 These simply mean the project exists, but nothing of that type has been added yet.
 
+## Project Assets
+
+Projects can optionally point at a project assets folder.
+
+When a project has an assets folder:
+
+- the sidebar shows an **Assets** section inside that project
+- asset categories appear as nested child entries with item counts
+- the section stays collapsed by default unless you left it expanded previously
+- selecting a category opens the right-side asset inspector
+
+Current asset categories include:
+
+- Images
+- Documents
+- PDFs
+- Code & Text
+- Other files
+
+### What you can do in the asset inspector
+
+The asset inspector lets you:
+
+- search and sort indexed assets
+- refresh the asset index from the project folder
+- preview supported files in-app
+- attach assets to chat
+- toggle whether an asset is available in chat context
+- remove an asset from the project index
+
+### Current preview behavior
+
+Supported in-app preview paths include:
+
+- images
+- PDFs
+- office-style document previews where supported by the existing preview stack
+- code and text files
+- video files such as `mp4`
+
+For image categories, the inspector defaults to a grid view with thumbnails.
+
 ## Current scope
 
 At this stage, Projects support:
@@ -166,10 +208,12 @@ At this stage, Projects support:
 - project chat containment
 - project workspace chat containment
 - project team containment
+- project asset browsing from an optional project assets folder
+- per-category asset counts and nested asset navigation
+- attaching and context-enabling project assets from the inspector
+- in-app preview for supported project assets, including video
 - moving chats and teams into and out of projects
 - keeping non-project chats in Recents
-
-Project **Assets** is currently a placeholder area for future work.
 
 ## Practical example
 
@@ -178,5 +222,6 @@ A project called `Website Redesign` might contain:
 - a regular chat for planning
 - a workspace chat tied to the website repository
 - a team for research or implementation
+- a project assets folder for screenshots, PDFs, reference docs, and video clips
 
 That keeps everything related to the same initiative together in one place.

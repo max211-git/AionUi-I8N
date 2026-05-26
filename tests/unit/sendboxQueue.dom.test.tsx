@@ -18,6 +18,7 @@ const mockShouldBlockMobileInputFocus = vi.fn(() => false);
 const mockSetSendBoxHandler = vi.fn();
 const mockRemoveDomSnippet = vi.fn();
 const mockClearDomSnippets = vi.fn();
+const mockTranslate = (key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? key;
 
 let layoutState = { isMobile: false };
 let conversationState: { conversationId?: string } = { conversationId: 'conversation-1' };
@@ -194,7 +195,7 @@ vi.mock('@/renderer/utils/ui/focus', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? key,
+    t: mockTranslate,
   }),
 }));
 
@@ -536,11 +537,14 @@ describe('SendBox queue and interaction behaviors', () => {
     renderControlledSendBox({ initialValue: 'Old draft' });
 
     const textarea = getTextarea();
-    textarea.blur();
-    document.body.focus();
+    act(() => {
+      textarea.blur();
+      document.body.focus();
+    });
 
     await act(async () => {
       pasteServiceArgs?.onTextPaste?.('Fresh draft');
+      await Promise.resolve();
     });
 
     expect(screen.getByTestId('current-value')).toHaveTextContent('Fresh draft');
@@ -553,10 +557,14 @@ describe('SendBox queue and interaction behaviors', () => {
 
     expect(getTextarea().style.height).toBe('20px');
 
-    rerender(<SendBox value={'short\nline'} onChange={vi.fn()} onSend={vi.fn().mockResolvedValue(undefined)} />);
+    act(() => {
+      rerender(<SendBox value={'short\nline'} onChange={vi.fn()} onSend={vi.fn().mockResolvedValue(undefined)} />);
+    });
     expect(getTextarea().style.minHeight).toBe('40px');
 
-    rerender(<SendBox value={'x'.repeat(810)} onChange={vi.fn()} onSend={vi.fn().mockResolvedValue(undefined)} />);
+    act(() => {
+      rerender(<SendBox value={'x'.repeat(810)} onChange={vi.fn()} onSend={vi.fn().mockResolvedValue(undefined)} />);
+    });
     expect(getTextarea().style.minHeight).toBe('40px');
   });
 

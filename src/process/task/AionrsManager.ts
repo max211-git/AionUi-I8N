@@ -20,7 +20,7 @@ import { addMessage, addOrUpdateMessage } from '@process/utils/message';
 import { uuid } from '@/common/utils';
 import BaseAgentManager from './BaseAgentManager';
 import { IpcAgentEventEmitter } from './IpcAgentEventEmitter';
-import { mainError, mainLog, mainWarn } from '@process/utils/mainLogger';
+import { mainError, mainLog } from '@process/utils/mainLogger';
 import { hasCronCommands } from './CronCommandDetector';
 import { processCronInMessage } from './MessageMiddleware';
 import { extractAndStripThinkTags } from './ThinkTagDetector';

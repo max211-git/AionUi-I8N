@@ -47,9 +47,7 @@ export const draftFromProjectMemoryEntry = (entry: TProjectMemoryEntry): Project
   tags: entry.tags.join(', '),
 });
 
-export const createProjectMemoryInputFromDraft = (
-  draft: ProjectMemoryEntryDraft
-): CreateProjectMemoryEntryInput => ({
+export const createProjectMemoryInputFromDraft = (draft: ProjectMemoryEntryDraft): CreateProjectMemoryEntryInput => ({
   name: draft.name.trim(),
   description: draft.description.trim() || undefined,
   type: draft.type,

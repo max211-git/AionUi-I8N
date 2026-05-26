@@ -67,10 +67,10 @@ describe('MermaidBlock', () => {
       svg: '<svg viewBox="0 0 100 100"><text x="0" y="20">diagram</text></svg>',
     });
 
-    const { container, getByText } = render(<MermaidBlock code={'flowchart TD\nA-->B'} />);
+    const { getByText, getByTestId } = render(<MermaidBlock code={'flowchart TD\nA-->B'} />);
 
     await waitFor(() => {
-      expect(container.querySelector('svg')).not.toBeNull();
+      expect(getByTestId('mermaid-diagram')).toBeInTheDocument();
     });
 
     expect(getByText('preview.preview')).toBeInTheDocument();

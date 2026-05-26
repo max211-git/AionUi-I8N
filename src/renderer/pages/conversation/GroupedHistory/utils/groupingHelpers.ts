@@ -244,15 +244,13 @@ export const buildGroupedHistory = (
   const visibleConversations = conversations.filter(shouldDisplayConversationInSidebar);
   const pinnedProjectIds = new Set(projects.filter(isProjectPinned).map((project) => project.id));
   const pinnedProjectGroups = sortProjectGroupsBySidebarPriority(
-    projects
-      .filter(isProjectPinned)
-      .map((project) =>
-        buildProjectGroup(
-          project,
-          visibleConversations.filter((conversation) => conversation.projectId === project.id),
-          teams.filter((team) => team.projectId === project.id)
-        )
+    projects.filter(isProjectPinned).map((project) =>
+      buildProjectGroup(
+        project,
+        visibleConversations.filter((conversation) => conversation.projectId === project.id),
+        teams.filter((team) => team.projectId === project.id)
       )
+    )
   );
   const pinnedTeams = sortTeamsBySidebarPriority(
     teams.filter((team) => isTeamPinned(team) && !pinnedProjectIds.has(team.projectId ?? ''))
@@ -274,7 +272,11 @@ export const buildGroupedHistory = (
   );
   const unpinnedProjects = projects.filter((project) => !isProjectPinned(project));
   const nonPinnedTeams = teams.filter((team) => !isTeamPinned(team));
-  const { allProjectGroups, teamsByProject } = buildProjectConversationMaps(normalConversations, unpinnedProjects, nonPinnedTeams);
+  const { allProjectGroups, teamsByProject } = buildProjectConversationMaps(
+    normalConversations,
+    unpinnedProjects,
+    nonPinnedTeams
+  );
 
   const projectGroups = sortProjectGroupsBySidebarPriority(
     unpinnedProjects.map((project) =>

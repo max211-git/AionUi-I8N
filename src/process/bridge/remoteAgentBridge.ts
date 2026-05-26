@@ -31,8 +31,9 @@ type WebSocketCtorLike = new (
   }
 ) => WebSocketLike;
 
-const DefaultWebSocketCtor = (WebSocketModule.default ?? WebSocketModule.WebSocket ?? (WebSocketModule as unknown)) as
-  WebSocketCtorLike;
+const DefaultWebSocketCtor = (WebSocketModule.default ??
+  WebSocketModule.WebSocket ??
+  (WebSocketModule as unknown)) as WebSocketCtorLike;
 
 function getWebSocketCtor(): WebSocketCtorLike {
   const testCtor = (globalThis as { __AIONUI_TEST_WS__?: WebSocketCtorLike }).__AIONUI_TEST_WS__;

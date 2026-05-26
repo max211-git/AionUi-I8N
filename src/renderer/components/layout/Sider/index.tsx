@@ -32,6 +32,11 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
   const { logout, status } = useAuth();
   const { theme, setTheme } = useThemeContext();
   const [isBatchMode, setIsBatchMode] = useState(false);
+  const [historyExpansionRequest, setHistoryExpansionRequest] = useState<{
+    mode: 'expand' | 'collapse';
+    seq: number;
+  } | null>(null);
+  const [historyExpandability, setHistoryExpandability] = useState({ hasExpandableItems: false, fullyExpanded: false });
   const { jobs: cronJobs } = useAllCronJobs();
   const isSettings = pathname.startsWith('/settings');
   const lastNonSettingsPathRef = useRef('/guid');
@@ -147,6 +152,8 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
     onSessionClick,
     batchMode: isBatchMode,
     onBatchModeChange: setIsBatchMode,
+    historyExpansionRequest,
+    onHistoryExpansionStateChange: setHistoryExpandability,
   };
 
   return (
@@ -166,6 +173,14 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
               siderTooltipProps={siderTooltipProps}
               onNewChat={handleNewChat}
               onToggleBatchMode={() => setIsBatchMode((prev) => !prev)}
+              showHistoryExpansionControl={!collapsed && historyExpandability.hasExpandableItems}
+              historyFullyExpanded={historyExpandability.fullyExpanded}
+              onToggleHistoryExpansion={() =>
+                setHistoryExpansionRequest((previous) => ({
+                  mode: historyExpandability.fullyExpanded ? 'collapse' : 'expand',
+                  seq: (previous?.seq ?? 0) + 1,
+                }))
+              }
             />
             {/* Search entry */}
             <SiderSearchEntry

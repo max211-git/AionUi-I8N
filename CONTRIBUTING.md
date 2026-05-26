@@ -42,6 +42,9 @@ bun run format
 # 2. Lint (skip if no .ts/.tsx files changed)
 bun run lint
 
+# 2b. Do not introduce new lint warnings in changed JS/TS files
+bun run lint:no-new-warnings -- --from-ref origin/main --to-ref HEAD
+
 # 3. Type check (skip if no .ts/.tsx files changed)
 bunx tsc --noEmit
 
@@ -63,6 +66,7 @@ bunx vitest run
 ```
 
 > `prek` runs format-check + lint + tsc in read-only mode. If it reports issues, run the auto-fix commands above first, then re-run prek.
+> PR checks also block new lint warnings in changed JS/TS files, even while the repository still has legacy warning debt.
 
 ### Common failures and fixes
 

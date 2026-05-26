@@ -529,7 +529,7 @@ Deep AI Office Scenario Support:
 - **File Management**: Intelligently organize local folders and batch rename with one click.
 - **Data Processing**: Deeply analyze and automatically beautify Excel reports.
 - **Document Generation**: Automatically write and format PPT, Word, and Markdown documents.
-- **Instant Preview**: Built-in 10+ format preview panels, AI collaboration results instantly visible.
+- **Instant Preview**: Built-in 10+ format preview panels, including images, office docs, PDFs, code, and video.
 
 </details>
 
@@ -642,11 +642,14 @@ This fork is maintained as a public downstream of upstream `iOfficeAI/AionUi`. I
 - **Recents limited to non-project items** so project-owned work stays contained
 - **Pin / unpin for projects and teams** from the sidebar menus
 - **Drag-and-drop project reordering** inside the Projects section
+- **Project assets browser** with category counts, image grid view, context toggles, and built-in preview
+- **Global expand / collapse control** for the left history sidebar
 - **Empty projects stay visible** so you can scaffold work before the first chat
 - **Resizable desktop sidebar** with a wider default and persisted width
 - **Native right-click edit menu** for chat inputs and other editable fields, ready for fork-specific extensions
 
 See also:
+
 - [Projects guide](./docs/guides/projects.md)
 - [Project containment semantics](./docs/architecture/project-containment-semantics.md)
 - [Downstream architecture](./docs/architecture/downstream-architecture.md)
@@ -658,6 +661,7 @@ See also:
 If you plan to make this fork public specifically for people who asked for project folders / project containers, the best place to track and notify them is GitHub Issues or Discussions.
 
 Recommended workflow:
+
 - open a pinned Discussion or Issue announcing that **Projects / project folders are now available in this fork**
 - link the Projects guide and the current packaged test build or release
 - reply directly on any existing feature-request threads you want to notify

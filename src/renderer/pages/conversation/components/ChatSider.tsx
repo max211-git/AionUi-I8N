@@ -5,8 +5,10 @@
  */
 
 import type { TChatConversation } from '@/common/config/storage';
+import { useProjectAssetInspectorState } from '@/renderer/pages/conversation/hooks/useProjectAssetInspectorSync';
 import { Message } from '@arco-design/web-react';
 import React from 'react';
+import ProjectAssetsPanel from './ProjectAssetsPanel';
 import ChatWorkspace from '../Workspace';
 
 const getWorkspaceForInspector = (conversation?: TChatConversation): string => {
@@ -19,9 +21,17 @@ const ChatSider: React.FC<{
 }> = ({ conversation, teamId }) => {
   const [messageApi, messageContext] = Message.useMessage({ maxCount: 1 });
   const workspace = getWorkspaceForInspector(conversation);
+  const { isActive: isProjectAssetInspectorActive, selection } = useProjectAssetInspectorState(conversation?.projectId);
+
+  let inspectorNode: React.ReactNode = null;
+  if (conversation && isProjectAssetInspectorActive && selection) {
+    inspectorNode = (
+      <ProjectAssetsPanel conversation={conversation} category={selection.category} messageApi={messageApi} />
+    );
+  }
 
   let workspaceNode: React.ReactNode = null;
-  if (conversation?.type === 'gemini' && workspace) {
+  if (!inspectorNode && conversation?.type === 'gemini' && workspace) {
     workspaceNode = (
       <ChatWorkspace
         conversation_id={conversation.id}
@@ -30,7 +40,7 @@ const ChatSider: React.FC<{
         teamId={teamId}
       ></ChatWorkspace>
     );
-  } else if (conversation?.type === 'acp' && workspace) {
+  } else if (!inspectorNode && conversation?.type === 'acp' && workspace) {
     workspaceNode = (
       <ChatWorkspace
         conversation_id={conversation.id}
@@ -40,7 +50,7 @@ const ChatSider: React.FC<{
         teamId={teamId}
       ></ChatWorkspace>
     );
-  } else if (conversation?.type === 'codex' && workspace) {
+  } else if (!inspectorNode && conversation?.type === 'codex' && workspace) {
     workspaceNode = (
       <ChatWorkspace
         conversation_id={conversation.id}
@@ -50,7 +60,7 @@ const ChatSider: React.FC<{
         teamId={teamId}
       ></ChatWorkspace>
     );
-  } else if (conversation?.type === 'aionrs' && workspace) {
+  } else if (!inspectorNode && conversation?.type === 'aionrs' && workspace) {
     workspaceNode = (
       <ChatWorkspace
         conversation_id={conversation.id}
@@ -62,14 +72,14 @@ const ChatSider: React.FC<{
     );
   }
 
-  if (!workspaceNode) {
+  if (!inspectorNode && !workspaceNode) {
     return <div></div>;
   }
 
   return (
     <>
       {messageContext}
-      {workspaceNode}
+      {inspectorNode || workspaceNode}
     </>
   );
 };

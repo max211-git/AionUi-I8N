@@ -162,8 +162,8 @@ vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   DragOverlay: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   closestCenter: vi.fn(),
-  KeyboardSensor: class {},
-  PointerSensor: class {},
+  KeyboardSensor: vi.fn(),
+  PointerSensor: vi.fn(),
   useSensor: vi.fn(() => ({})),
   useSensors: vi.fn(() => []),
 }));
@@ -322,6 +322,7 @@ describe('GroupedHistory sidebar visibility contracts', () => {
           project: {
             id: 'project-1',
             name: 'Project Atlas',
+            rootPath: '/tmp/project-atlas',
             createdAt: 1,
             updatedAt: 1,
           },
@@ -350,6 +351,7 @@ describe('GroupedHistory sidebar visibility contracts', () => {
           project: {
             id: 'project-1',
             name: 'Project Atlas',
+            rootPath: '/tmp/project-atlas',
             createdAt: 1,
             updatedAt: 1,
           },
@@ -380,6 +382,7 @@ describe('GroupedHistory sidebar visibility contracts', () => {
           project: {
             id: 'project-1',
             name: 'Project Atlas',
+            rootPath: '/tmp/project-atlas',
             createdAt: 1,
             updatedAt: 1,
           },
@@ -412,6 +415,7 @@ describe('GroupedHistory sidebar visibility contracts', () => {
           project: {
             id: 'project-1',
             name: 'Project Atlas',
+            rootPath: '/tmp/project-atlas',
             createdAt: 1,
             updatedAt: 1,
           },
@@ -445,6 +449,11 @@ describe('GroupedHistory sidebar visibility contracts', () => {
     expect(screen.getByText('conversation.history.projectWorkspaceChatsSection')).toBeInTheDocument();
     expect(screen.getByText('conversation.history.projectChatsSection')).toBeInTheDocument();
     expect(screen.getByText('conversation.history.projectAssetsSection')).toBeInTheDocument();
+    expect(screen.queryByText('conversation.history.projectAssetsCategoryImages')).not.toBeInTheDocument();
+    expect(screen.queryByText('conversation.history.projectAssetsCategoryDocuments')).not.toBeInTheDocument();
+    expect(screen.queryByText('conversation.history.projectAssetsCategoryPdfs')).not.toBeInTheDocument();
+    expect(screen.queryByText('conversation.history.projectAssetsCategoryCodeText')).not.toBeInTheDocument();
+    expect(screen.queryByText('conversation.history.projectAssetsCategoryOther')).not.toBeInTheDocument();
     expect(screen.queryByText('conversation.history.projectTeamsPlaceholder')).not.toBeInTheDocument();
     expect(screen.queryByText('conversation.history.projectAssetsPlaceholder')).not.toBeInTheDocument();
     expect(screen.queryAllByTestId('conversation-row')).toHaveLength(0);
@@ -478,6 +487,7 @@ describe('GroupedHistory sidebar visibility contracts', () => {
           project: {
             id: 'project-1',
             name: 'Project Atlas',
+            rootPath: '/tmp/project-atlas',
             createdAt: 1,
             updatedAt: 1,
           },
@@ -504,6 +514,38 @@ describe('GroupedHistory sidebar visibility contracts', () => {
     expect(screen.getByText('Hermes Team')).toBeInTheDocument();
     expect(screen.getByTestId('conversation-row')).toBeInTheDocument();
     expect(screen.queryByText('conversation.history.projectAssetsPlaceholder')).not.toBeInTheDocument();
+    expect(screen.queryByText('conversation.history.projectAssetsCategoryImages')).not.toBeInTheDocument();
+  });
+
+  it('hides the project assets subsection when no project folder is assigned', () => {
+    window.localStorage.setItem('aionui:grouped-history:expanded-projects', JSON.stringify(['project-1']));
+
+    testState.groupedHistory = {
+      pinnedConversations: [],
+      pinnedProjectGroups: [],
+      pinnedTeams: [],
+      projectGroups: [
+        {
+          project: {
+            id: 'project-1',
+            name: 'Project Atlas',
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          conversations: [],
+          chatConversations: [],
+          workspaceGroups: [],
+          teams: [],
+        },
+      ],
+      unassignedTeams: [],
+      timelineSections: [],
+    };
+
+    render(<WorkspaceGroupedHistory collapsed={false} />);
+
+    expect(screen.queryByText('conversation.history.projectAssetsSection')).not.toBeInTheDocument();
+    expect(screen.queryByText('conversation.history.projectAssetsCategoryImages')).not.toBeInTheDocument();
   });
 
   it('persists the project subsection expansion choices the user makes', () => {

@@ -26,6 +26,39 @@ import path from 'path';
 import { resolveLocaleKey } from '@/common/utils';
 import { hasGeminiOauthCreds } from './googleAuthCheck';
 
+const findFirstAccessiblePath = async (candidates: string[]): Promise<string | undefined> => {
+  const checks = await Promise.all(
+    candidates.map(async (candidate) => {
+      try {
+        await fs.access(candidate);
+        return candidate;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return checks.find((candidate): candidate is string => candidate !== null);
+};
+
+const readFirstLocalizedFile = async (
+  dir: string,
+  locales: string[],
+  fileName: (targetLocale: string) => string
+): Promise<string | undefined> => {
+  const contents = await Promise.all(
+    locales.map(async (targetLocale) => {
+      try {
+        return await fs.readFile(path.join(dir, fileName(targetLocale)), 'utf-8');
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return contents.find((content): content is string => content !== null);
+};
+
 export class TeamSessionService {
   private readonly sessions: Map<string, TeamSession> = new Map();
   /** Per-team mutex to serialize addAgent calls, preventing read-modify-write race conditions */
@@ -197,17 +230,7 @@ export class TeamSessionService {
     const base = process.cwd();
     const devDir = resourceType === 'skills' ? 'src/process/resources/skills' : resourceType;
     const candidates = [path.join(base, devDir), path.join(base, '..', devDir), path.join(base, resourceType)];
-
-    for (const candidate of candidates) {
-      try {
-        await fs.access(candidate);
-        return candidate;
-      } catch {
-        // Try next candidate
-      }
-    }
-
-    return candidates[0];
+    return (await findFirstAccessiblePath(candidates)) ?? candidates[0];
   }
 
   private async readAssistantResource(
@@ -220,22 +243,12 @@ export class TeamSessionService {
     const fileName = (targetLocale: string) =>
       resourceType === 'rules' ? `${assistantId}.${targetLocale}.md` : `${assistantId}-skills.${targetLocale}.md`;
 
-    for (const currentLocale of locales) {
-      try {
-        return await fs.readFile(path.join(assistantsDir, fileName(currentLocale)), 'utf-8');
-      } catch {
-        // Try next locale
-      }
-    }
+    const assistantContent = await readFirstLocalizedFile(assistantsDir, locales, fileName);
+    if (assistantContent) return assistantContent;
 
     const builtinDir = await this.findBuiltinResourceDir(resourceType);
-    for (const currentLocale of locales) {
-      try {
-        return await fs.readFile(path.join(builtinDir, fileName(currentLocale)), 'utf-8');
-      } catch {
-        // Try next locale
-      }
-    }
+    const builtinContent = await readFirstLocalizedFile(builtinDir, locales, fileName);
+    if (builtinContent) return builtinContent;
 
     return '';
   }
@@ -731,7 +744,9 @@ export class TeamSessionService {
     // No active session — update DB directly
     const team = await this.repo.findById(teamId);
     if (!team) throw new Error(`Team "${teamId}" not found`);
-    const updatedAgents = team.agents.map((a) => (a.slotId === slotId ? { ...a, agentName: newName.trim() } : a));
+    const updatedAgents = team.agents.map((agent) =>
+      agent.slotId === slotId ? Object.assign({}, agent, { agentName: newName.trim() }) : agent
+    );
     await this.repo.update(teamId, { agents: updatedAgents, updatedAt: Date.now() });
   }
 
@@ -752,17 +767,20 @@ export class TeamSessionService {
     const now = Date.now();
     await this.repo.update(teamId, { workspace: newWorkspace, updatedAt: now });
 
-    for (const agent of team.agents) {
-      if (!agent.conversationId) continue;
-      await this.conversationService.updateConversation(
-        agent.conversationId,
-        {
-          extra: { workspace: newWorkspace, customWorkspace: true },
-          modifyTime: now,
-        } as Partial<TChatConversation>,
-        true
-      );
-    }
+    await Promise.all(
+      team.agents
+        .filter((agent): agent is typeof agent & { conversationId: string } => Boolean(agent.conversationId))
+        .map((agent) =>
+          this.conversationService.updateConversation(
+            agent.conversationId,
+            {
+              extra: { workspace: newWorkspace, customWorkspace: true },
+              modifyTime: now,
+            } as Partial<TChatConversation>,
+            true
+          )
+        )
+    );
   }
 
   async updateProject(teamId: string, projectId?: string): Promise<void> {
@@ -843,7 +861,7 @@ export class TeamSessionService {
       if (stdioConfig && newAgent.conversationId) {
         await this.conversationService.updateConversation(
           newAgent.conversationId,
-          { extra: { teamMcpStdioConfig: stdioConfig } } as any,
+          { extra: { teamMcpStdioConfig: stdioConfig } } as unknown as Partial<TChatConversation>,
           true
         );
       }
@@ -865,7 +883,7 @@ export class TeamSessionService {
             try {
               await this.conversationService.updateConversation(
                 agent.conversationId,
-                { extra: { teamMcpStdioConfig: agentStdioConfig } } as any,
+                { extra: { teamMcpStdioConfig: agentStdioConfig } } as unknown as Partial<TChatConversation>,
                 true
               );
               // Force-rebuild cached agent task so it reads the updated extra from DB

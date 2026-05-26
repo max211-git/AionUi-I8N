@@ -86,6 +86,8 @@ export type WorkspaceGroupedHistoryProps = {
   tooltipEnabled?: boolean;
   batchMode?: boolean;
   onBatchModeChange?: (value: boolean) => void;
+  historyExpansionRequest?: { mode: 'expand' | 'collapse'; seq: number } | null;
+  onHistoryExpansionStateChange?: (state: { hasExpandableItems: boolean; fullyExpanded: boolean }) => void;
 };
 
 export type DragItemType = 'conversation' | 'workspace';

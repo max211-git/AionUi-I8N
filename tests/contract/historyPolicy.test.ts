@@ -50,11 +50,13 @@ const createTeam = (overrides: Partial<TTeam> = {}): TTeam => ({
   sortOrder: overrides.sortOrder,
 });
 
-const createProjectGroup = (overrides: {
-  project?: Partial<TProject>;
-  conversations?: TChatConversation[];
-  teams?: TTeam[];
-} = {}): ProjectGroup => ({
+const createProjectGroup = (
+  overrides: {
+    project?: Partial<TProject>;
+    conversations?: TChatConversation[];
+    teams?: TTeam[];
+  } = {}
+): ProjectGroup => ({
   project: createProject(overrides.project),
   conversations: overrides.conversations ?? [],
   chatConversations: [],
@@ -112,7 +114,11 @@ describe('history sidebar policy', () => {
       }),
     ]);
 
-    expect(sortedProjectGroups.map((group) => group.project.id)).toEqual(['pinned', 'unpinned-newer', 'unpinned-older']);
+    expect(sortedProjectGroups.map((group) => group.project.id)).toEqual([
+      'pinned',
+      'unpinned-newer',
+      'unpinned-older',
+    ]);
   });
 
   it('uses project conversations, project teams, and project timestamps as activity sources', () => {

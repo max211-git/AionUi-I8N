@@ -18,21 +18,31 @@ import type { MainToWorkerMessage } from '../WorkerProtocol';
 import { Pipe } from './pipe';
 
 export class ForkTask<Data> extends Pipe {
+  private static activeTasks = new Set<ForkTask<unknown>>();
+  private static exitHandlerRegistered = false;
   protected path = '';
   protected data: Data;
   protected fcp: IWorkerProcess | undefined;
-  private killFn: () => void;
   private enableFork: boolean;
   private childExitExpected = false;
+
+  private static ensureExitHandlerRegistered() {
+    if (ForkTask.exitHandlerRegistered) return;
+    process.on('exit', () => {
+      for (const task of ForkTask.activeTasks) {
+        task.kill();
+      }
+    });
+    ForkTask.exitHandlerRegistered = true;
+  }
+
   constructor(path: string, data: Data, enableFork = true) {
     super(true);
     this.path = path;
     this.data = data;
     this.enableFork = enableFork;
-    this.killFn = () => {
-      this.kill();
-    };
-    process.on('exit', this.killFn);
+    ForkTask.activeTasks.add(this as ForkTask<unknown>);
+    ForkTask.ensureExitHandlerRegistered();
     if (this.enableFork) this.init();
   }
   kill() {
@@ -40,7 +50,7 @@ export class ForkTask<Data> extends Pipe {
       this.childExitExpected = true;
       this.fcp.kill();
     }
-    process.off('exit', this.killFn);
+    ForkTask.activeTasks.delete(this as ForkTask<unknown>);
   }
   protected init() {
     const platform = getPlatformServices();
@@ -90,6 +100,7 @@ export class ForkTask<Data> extends Pipe {
       if (this.fcp === fcp) {
         this.fcp = undefined;
       }
+      ForkTask.activeTasks.delete(this as ForkTask<unknown>);
 
       if (!expected) {
         this.emit('exit', { code, signal });

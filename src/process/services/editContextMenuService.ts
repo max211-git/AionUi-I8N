@@ -15,10 +15,10 @@ type EditableContextMenuParams = {
 
 type EditableContextMenuItemBuilder = (params: EditableContextMenuParams) => MenuItemConstructorOptions[];
 
-function buildMisspellingItems({
-  dictionarySuggestions = [],
-  misspelledWord,
-}: EditableContextMenuParams, window: BrowserWindow): MenuItemConstructorOptions[] {
+function buildMisspellingItems(
+  { dictionarySuggestions = [], misspelledWord }: EditableContextMenuParams,
+  window: BrowserWindow
+): MenuItemConstructorOptions[] {
   if (!misspelledWord) {
     return [];
   }

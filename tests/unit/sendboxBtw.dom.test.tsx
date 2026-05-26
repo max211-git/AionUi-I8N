@@ -29,6 +29,7 @@ const mockUsePreviewContext = vi.fn(() => ({
   removeDomSnippet: vi.fn(),
   clearDomSnippets: vi.fn(),
 }));
+const mockTranslate = (key: string) => key;
 
 vi.mock('@/common', () => ({
   ipcBridge: {
@@ -135,7 +136,7 @@ vi.mock('@/renderer/utils/ui/focus', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: mockTranslate,
   }),
 }));
 
@@ -143,7 +144,13 @@ vi.mock('@arco-design/web-react', () => ({
   Button: ({ onClick, children, icon, ...props }: React.ComponentProps<'button'>) =>
     React.createElement('button', { onClick, ...props }, icon ?? children),
   Input: {
-    TextArea: ({ onKeyDown, onChange, value, ...props }: React.ComponentProps<'textarea'> & { value?: string }) =>
+    TextArea: ({
+      onKeyDown,
+      onChange,
+      value,
+      autoSize: _autoSize,
+      ...props
+    }: React.ComponentProps<'textarea'> & { value?: string; autoSize?: unknown }) =>
       React.createElement('textarea', {
         onKeyDown,
         onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => onChange?.(event.target.value),

@@ -2,6 +2,9 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockI18n = { language: 'en-US' };
+const mockTranslate = (key: string, options?: { defaultValue?: string }) => options?.defaultValue || key;
+
 vi.mock('@/common', () => ({
   ipcBridge: {
     conversation: {
@@ -164,10 +167,8 @@ vi.mock('@/renderer/utils/emitter', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: { defaultValue?: string }) => options?.defaultValue || key,
-    i18n: {
-      language: 'en-US',
-    },
+    t: mockTranslate,
+    i18n: mockI18n,
   }),
 }));
 

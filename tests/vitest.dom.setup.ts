@@ -67,8 +67,9 @@ global.cancelAnimationFrame = (id: number) => {
 Element.prototype.scrollTo = () => {};
 Element.prototype.scrollIntoView = () => {};
 
-// Mock localStorage (not always available in jsdom)
-if (typeof globalThis.localStorage === 'undefined' || typeof globalThis.localStorage?.clear !== 'function') {
+// Install a deterministic localStorage mock without probing Bun's global
+// localStorage getter, which emits warnings in node-style test workers.
+{
   const store = new Map<string, string>();
   const localStorageMock = {
     getItem: (key: string) => store.get(key) ?? null,
@@ -80,8 +81,8 @@ if (typeof globalThis.localStorage === 'undefined' || typeof globalThis.localSto
     },
     key: (index: number) => [...store.keys()][index] ?? null,
   };
-  Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true });
+  Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true, configurable: true });
   if (typeof window !== 'undefined') {
-    Object.defineProperty(window, 'localStorage', { value: localStorageMock, writable: true });
+    Object.defineProperty(window, 'localStorage', { value: localStorageMock, writable: true, configurable: true });
   }
 }

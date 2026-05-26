@@ -11,7 +11,7 @@ import { usePresetAssistantInfo } from '@/renderer/hooks/agent/usePresetAssistan
 import { CronJobIndicator } from '@/renderer/pages/cron';
 import { cleanupSiderTooltips, getSiderTooltipProps } from '@/renderer/utils/ui/siderTooltip';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
-import { Checkbox, Dropdown, Menu, Select, Spin, Tooltip } from '@arco-design/web-react';
+import { Checkbox, Dropdown, Menu, Spin, Tooltip } from '@arco-design/web-react';
 import { DeleteOne, EditOne, Export, MessageOne, Pushpin } from '@icon-park/react';
 import classNames from 'classnames';
 import React from 'react';

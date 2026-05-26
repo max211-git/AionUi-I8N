@@ -57,6 +57,7 @@
   "openInPanelTooltip": "View in preview panel",
   "mermaidTitle": "Mermaid Diagram",
   "largeTextTruncatedHint": "Large file preview mode: showing first {{count}} characters for performance.",
+  "videoUnavailable": "Video preview is unavailable",
   "errors": {
     "missingFilePath": "File path is missing",
     "openWithoutPath": "Unable to open: file path is not provided",

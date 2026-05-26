@@ -40,6 +40,7 @@ git checkout -b upgrade/upstream-vX.Y.Z
 3. Merge or cherry-pick the exact upstream tag into the sync branch.
 
 4. Resolve conflicts with these priorities:
+
 - preserve upstream behavior in upstream-core areas unless the fork contract requires otherwise
 - preserve AionUI+ semantics in named policy modules and product config surfaces
 - do not silently reintroduce upstream release/update links into fork-only public surfaces

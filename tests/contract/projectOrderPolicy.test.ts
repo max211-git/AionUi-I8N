@@ -1,4 +1,7 @@
-import { buildProjectReorderPlan, sortProjectGroupsByManualOrder } from '@/renderer/pages/conversation/GroupedHistory/utils/projectOrderPolicy';
+import {
+  buildProjectReorderPlan,
+  sortProjectGroupsByManualOrder,
+} from '@/renderer/pages/conversation/GroupedHistory/utils/projectOrderPolicy';
 import type { ProjectGroup } from '@/renderer/pages/conversation/GroupedHistory/types';
 import { describe, expect, it } from 'vitest';
 

@@ -4,7 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { TProjectMemoryEntry, TProjectMemorySettings, UpdateProjectMemoryEntryInput } from '@/common/projectMemory';
+import type {
+  TProjectMemoryEntry,
+  TProjectMemorySettings,
+  UpdateProjectMemoryEntryInput,
+} from '@/common/projectMemory';
 import { getDatabase } from '@process/services/database';
 
 import type { IProjectMemoryRepository } from './IProjectMemoryRepository';

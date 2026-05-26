@@ -24,6 +24,7 @@ import OfficeDocPreview from '../viewers/OfficeDocViewer';
 import PptViewer from '../viewers/PptViewer';
 import TextEditor from '../editors/TextEditor';
 import URLViewer from '../viewers/URLViewer';
+import VideoPreview from '../viewers/VideoViewer';
 import {
   PreviewTabs,
   PreviewToolbar,
@@ -647,6 +648,8 @@ const PreviewPanel: React.FC = () => {
           fileName={metadata?.fileName || metadata?.title}
         />
       );
+    } else if (contentType === 'video') {
+      return <VideoPreview filePath={metadata?.filePath} fileName={metadata?.fileName || metadata?.title} />;
     } else if (contentType === 'url') {
       // URL 预览模式 / URL preview mode
       return <URLViewer url={content} title={metadata?.title} />;

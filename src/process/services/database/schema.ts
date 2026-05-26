@@ -104,6 +104,34 @@ export function initSchema(db: ISqliteDriver): void {
     'CREATE INDEX IF NOT EXISTS idx_project_memory_entries_project_updated ON project_memory_entries(project_id, updated_at DESC)'
   );
 
+  db.exec(`CREATE TABLE IF NOT EXISTS project_assets (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    absolute_path TEXT NOT NULL,
+    relative_path TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    mime_type TEXT,
+    size INTEGER,
+    modified_at INTEGER,
+    indexed_at INTEGER NOT NULL,
+    context_enabled INTEGER NOT NULL DEFAULT 0,
+    removed_at INTEGER,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`);
+  db.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_project_assets_project_relative ON project_assets(project_id, relative_path)'
+  );
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_project_assets_project_category_removed ON project_assets(project_id, category, removed_at)'
+  );
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_project_assets_project_indexed ON project_assets(project_id, indexed_at DESC)'
+  );
+
   // Messages table (消息表 - 存储TMessage)
   db.exec(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
@@ -201,4 +229,4 @@ export function setDatabaseVersion(db: ISqliteDriver, version: number): void {
  * Current database schema version
  * Update this when adding new migrations in migrations.ts
  */
-export const CURRENT_DB_VERSION = 31;
+export const CURRENT_DB_VERSION = 34;

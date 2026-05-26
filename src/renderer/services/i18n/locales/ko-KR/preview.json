@@ -57,6 +57,7 @@
   "openInPanelTooltip": "미리보기 패널에서 보기",
   "mermaidTitle": "Mermaid 다이어그램",
   "largeTextTruncatedHint": "대용량 파일 미리보기 모드: 성능을 위해 앞의 {{count}}자만 표시합니다.",
+  "videoUnavailable": "Video preview is unavailable",
   "errors": {
     "missingFilePath": "파일 경로가 누락되었습니다",
     "openWithoutPath": "열 수 없음: 파일 경로가 제공되지 않았습니다",

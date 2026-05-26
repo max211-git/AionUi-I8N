@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 type QueueItem = {
@@ -72,6 +72,14 @@ const mockDraftData: {
 };
 
 let uuidCounter = 0;
+
+const renderAndFlush = async (ui: React.ReactElement) => {
+  const view = render(ui);
+  await act(async () => {
+    await Promise.resolve();
+  });
+  return view;
+};
 
 vi.mock('@/common', () => ({
   ipcBridge: {
@@ -491,7 +499,7 @@ describe('platform send box queue integration', () => {
     ['nanobot', <NanobotSendBox conversation_id='conv-nanobot' />],
     ['remote', <RemoteSendBox conversation_id='conv-remote' />],
     ['openclaw', <OpenClawSendBox conversation_id='conv-openclaw' />],
-  ])('renders queue panel above the processing indicator for %s', (_name, element) => {
+  ])('renders queue panel above the processing indicator for %s', async (_name, element) => {
     mockUseConversationCommandQueue.mockReturnValue({
       items: [
         {
@@ -507,7 +515,7 @@ describe('platform send box queue integration', () => {
       ...queueSpies,
     });
 
-    render(element);
+    await renderAndFlush(element);
 
     const queuePanel = screen.getByTestId('queue-panel');
     const thoughtDisplay = screen.getByTestId('thought-display');

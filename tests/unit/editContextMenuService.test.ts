@@ -15,7 +15,10 @@ vi.mock('electron', () => ({
 }));
 
 import { Menu } from 'electron';
-import { buildEditableContextMenuTemplate, registerEditableContextMenu } from '@/process/services/editContextMenuService';
+import {
+  buildEditableContextMenuTemplate,
+  registerEditableContextMenu,
+} from '@/process/services/editContextMenuService';
 
 describe('edit context menu service', () => {
   it('returns no menu for non-editable targets', () => {
@@ -39,11 +42,15 @@ describe('edit context menu service', () => {
       },
     };
 
-    const template = buildEditableContextMenuTemplate({
-      isEditable: true,
-      misspelledWord: 'teh',
-      dictionarySuggestions: ['the'],
-    }, undefined, window as never);
+    const template = buildEditableContextMenuTemplate(
+      {
+        isEditable: true,
+        misspelledWord: 'teh',
+        dictionarySuggestions: ['the'],
+      },
+      undefined,
+      window as never
+    );
 
     expect(template[0]?.label).toBe('the');
     expect(template[2]?.label).toBe('Add to Dictionary');

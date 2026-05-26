@@ -27,7 +27,7 @@ import {
 } from '@/renderer/pages/conversation/utils/layoutCalc';
 import { Layout as ArcoLayout } from '@arco-design/web-react';
 import { ExpandLeft, ExpandRight } from '@icon-park/react';
-import React from 'react';
+import React, { useEffect } from 'react';
 import useSWR from 'swr';
 import './chat-layout.css';
 
@@ -53,8 +53,10 @@ const ChatLayout: React.FC<{
   workspacePath?: string;
   /** Custom rename handler; when provided, replaces the default conversation.update rename flow */
   onRenameTitle?: (newName: string) => Promise<boolean>;
+  /** When this key changes, expand and widen the workspace panel for asset browsing without persisting the width */
+  preferredWorkspaceOpenKey?: number;
 }> = (props) => {
-  const { conversationId, workspacePath } = props;
+  const { conversationId, workspacePath, preferredWorkspaceOpenKey } = props;
   const { backend, presetAssistant, agentName, workspaceEnabled = false } = props;
   const layout = useLayoutContext();
   const isMacRuntime = isMacEnvironment();
@@ -104,6 +106,7 @@ const ChatLayout: React.FC<{
   const {
     splitRatio: workspaceSplitRatio,
     setSplitRatio: setWorkspaceSplitRatio,
+    setSplitRatioTransient: setWorkspaceSplitRatioTransient,
     createDragHandle: createWorkspaceDragHandle,
   } = useResizableSplit({
     defaultWidth: 20,
@@ -111,6 +114,14 @@ const ChatLayout: React.FC<{
     maxWidth: 40,
     storageKey: 'chat-workspace-split-ratio',
   });
+
+  useEffect(() => {
+    if (!preferredWorkspaceOpenKey || !workspaceEnabled || isMobile) {
+      return;
+    }
+    setRightSiderCollapsed(false);
+    setWorkspaceSplitRatioTransient(40);
+  }, [isMobile, preferredWorkspaceOpenKey, setRightSiderCollapsed, setWorkspaceSplitRatioTransient, workspaceEnabled]);
 
   // Pre-hook metrics: compute dynamic min/max for the chat-preview split hook
   const { dynamicChatMinRatio, dynamicChatMaxRatio } = calcLayoutMetrics({

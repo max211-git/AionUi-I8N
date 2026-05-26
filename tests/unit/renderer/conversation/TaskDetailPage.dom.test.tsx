@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ICronJob } from '@/common/adapter/ipcBridge';
@@ -229,6 +229,8 @@ describe('TaskDetailPage', () => {
   });
 
   it('shows loading spinner initially', () => {
+    mockGetJob.mockImplementation(() => new Promise(() => {}));
+    mockListByCronJob.mockImplementation(() => new Promise(() => {}));
     render(<TaskDetailPage />);
     expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
   });
@@ -648,7 +650,9 @@ describe('TaskDetailPage', () => {
 
     // Simulate job update
     const updatedJob = { ...mockJob, name: 'Updated Job' };
-    updateHandler?.(updatedJob);
+    await act(async () => {
+      updateHandler?.(updatedJob);
+    });
 
     await waitFor(() => {
       expect(screen.getByText('Updated Job')).toBeInTheDocument();
@@ -672,11 +676,13 @@ describe('TaskDetailPage', () => {
     });
 
     // Verify the handler can be called without errors
-    expect(() => {
-      if (executedHandler) {
-        executedHandler({ jobId: 'job-123' });
-      }
-    }).not.toThrow();
+    await act(async () => {
+      expect(() => {
+        if (executedHandler) {
+          executedHandler({ jobId: 'job-123' });
+        }
+      }).not.toThrow();
+    });
   });
 
   it('displays next run time when available', async () => {

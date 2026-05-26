@@ -7,10 +7,13 @@
 import { ipcBridge } from '@/common';
 import type { TProject } from '@/common/adapter/ipcBridge';
 import type { TChatConversation } from '@/common/config/storage';
+import { PROJECT_ASSET_CATEGORIES, type ProjectAssetCategory } from '@/common/projectAssets';
 import type { TTeam } from '@/common/types/teamTypes';
 import DirectorySelectionModal from '@/renderer/components/settings/DirectorySelectionModal';
+import { isElectronDesktop } from '@/renderer/utils/platform';
+import { addEventListener } from '@/renderer/utils/emitter';
 import TeamCreateModal from '@/renderer/pages/team/components/TeamCreateModal';
-import { CronJobIndicator, useCronJobsMap } from '@/renderer/pages/cron';
+import { useCronJobsMap } from '@/renderer/pages/cron';
 import {
   DndContext,
   DragOverlay,
@@ -60,6 +63,7 @@ import { useConversations } from './hooks/useConversations';
 import { useDragAndDrop } from './hooks/useDragAndDrop';
 import { useExport } from './hooks/useExport';
 import { refreshConversationListSync } from './hooks/useConversationListSync';
+import { openProjectAssetInspector } from '../hooks/useProjectAssetInspectorSync';
 import type { ConversationRowProps, ProjectGroup, WorkspaceGroupedHistoryProps } from './types';
 import { buildProjectReorderPlan, sortProjectGroupsByManualOrder } from './utils/projectOrderPolicy';
 import { getSidebarSectionVisibility } from './utils/sectionVisibility';
@@ -72,7 +76,8 @@ const PROJECT_SUBSECTION_EXPANSION_STORAGE_KEY = 'aionui:grouped-history:expande
 const COLLAPSED_SECTION_STORAGE_KEY = 'aionui:grouped-history:collapsed-sections';
 const PERSISTED_STATIC_SECTION_KEYS = new Set(['pinned', 'projects', 'teams']);
 
-const isProjectSectionKey = (key: string): boolean => key.startsWith('project:') && !key.slice('project:'.length).includes(':');
+const isProjectSectionKey = (key: string): boolean =>
+  key.startsWith('project:') && !key.slice('project:'.length).includes(':');
 const isProjectSubsectionKey = (key: string): boolean =>
   key.startsWith('project:') && key.slice('project:'.length).includes(':');
 const isPersistedTopLevelSectionKey = (key: string, timelineSectionKeys: Set<string>): boolean =>
@@ -163,6 +168,25 @@ const getProjectSubsectionKeys = (projectId: string): string[] => [
   `project:${projectId}:assets`,
 ];
 
+const PROJECT_ASSET_CATEGORY_ORDER = PROJECT_ASSET_CATEGORIES;
+
+const getProjectAssetCategoryLabelKey = (category: ProjectAssetCategory) => {
+  switch (category) {
+    case 'images':
+      return 'conversation.history.projectAssetsCategoryImages';
+    case 'documents':
+      return 'conversation.history.projectAssetsCategoryDocuments';
+    case 'pdfs':
+      return 'conversation.history.projectAssetsCategoryPdfs';
+    case 'code-text':
+      return 'conversation.history.projectAssetsCategoryCodeText';
+    case 'other':
+      return 'conversation.history.projectAssetsCategoryOther';
+  }
+};
+
+type ProjectAssetCountMap = Partial<Record<ProjectAssetCategory, number>>;
+
 type SortableProjectCardProps = {
   projectGroup: ProjectGroup;
   reorderMode: boolean;
@@ -247,6 +271,8 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   tooltipEnabled = false,
   batchMode = false,
   onBatchModeChange,
+  historyExpansionRequest,
+  onHistoryExpansionStateChange,
 }) => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -258,6 +284,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   const [editingProject, setEditingProject] = useState<TProject | null>(null);
   const [projectName, setProjectName] = useState('');
   const [projectRootPath, setProjectRootPath] = useState('');
+  const [showProjectDirectorySelector, setShowProjectDirectorySelector] = useState(false);
   const [teamAssignProjectVisible, setTeamAssignProjectVisible] = useState(false);
   const [teamAssignProjectLoading, setTeamAssignProjectLoading] = useState(false);
   const [teamAssignProjectTeam, setTeamAssignProjectTeam] = useState<TTeam | null>(null);
@@ -277,6 +304,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   const [manualTeamOrder, setManualTeamOrder] = useState<string[]>([]);
   const [activeProjectGroup, setActiveProjectGroup] = useState<ProjectGroup | null>(null);
   const [activeTeam, setActiveTeam] = useState<TTeam | null>(null);
+  const [projectAssetCounts, setProjectAssetCounts] = useState<Record<string, ProjectAssetCountMap>>({});
   const projectReorderSensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 6 },
@@ -307,32 +335,38 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     timelineSections,
     handleToggleWorkspace,
   } = useConversations();
-  const timelineSectionKeySet = useMemo(() => new Set(timelineSections.map((section) => section.timeline)), [timelineSections]);
+  const timelineSectionKeySet = useMemo(
+    () => new Set(timelineSections.map((section) => section.timeline)),
+    [timelineSections]
+  );
 
-  const toggleSection = useCallback((key: string) => {
-    setCollapsedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+  const toggleSection = useCallback(
+    (key: string) => {
+      setCollapsedSections((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
 
-      if (isProjectSectionKey(key)) {
-        const projectIds = projectGroups.map((group) => group.project.id);
-        const expandedProjectIds = projectIds.filter((projectId) => !next.has(`project:${projectId}`));
-        writeExpandedProjectIds(expandedProjectIds);
-      } else if (isProjectSubsectionKey(key)) {
-        const projectSubsectionKeys = projectGroups.flatMap((group) => getProjectSubsectionKeys(group.project.id));
-        const expandedProjectSubsectionKeys = projectSubsectionKeys.filter((sectionKey) => !next.has(sectionKey));
-        writeExpandedProjectSubsectionKeys(expandedProjectSubsectionKeys);
-      } else if (isPersistedTopLevelSectionKey(key, timelineSectionKeySet)) {
-        const collapsedSectionKeys = [...next].filter((sectionKey) =>
-          isPersistedTopLevelSectionKey(sectionKey, timelineSectionKeySet)
-        );
-        writeCollapsedSectionKeys(collapsedSectionKeys);
-      }
+        if (isProjectSectionKey(key)) {
+          const projectIds = projectGroups.map((group) => group.project.id);
+          const expandedProjectIds = projectIds.filter((projectId) => !next.has(`project:${projectId}`));
+          writeExpandedProjectIds(expandedProjectIds);
+        } else if (isProjectSubsectionKey(key)) {
+          const projectSubsectionKeys = projectGroups.flatMap((group) => getProjectSubsectionKeys(group.project.id));
+          const expandedProjectSubsectionKeys = projectSubsectionKeys.filter((sectionKey) => !next.has(sectionKey));
+          writeExpandedProjectSubsectionKeys(expandedProjectSubsectionKeys);
+        } else if (isPersistedTopLevelSectionKey(key, timelineSectionKeySet)) {
+          const collapsedSectionKeys = [...next].filter((sectionKey) =>
+            isPersistedTopLevelSectionKey(sectionKey, timelineSectionKeySet)
+          );
+          writeCollapsedSectionKeys(collapsedSectionKeys);
+        }
 
-      return next;
-    });
-  }, [projectGroups, timelineSectionKeySet]);
+        return next;
+      });
+    },
+    [projectGroups, timelineSectionKeySet]
+  );
 
   useEffect(() => {
     const expandedProjectIds = readExpandedProjectIds();
@@ -345,7 +379,9 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       const next = new Set(
         [...prev].filter(
           (key) =>
-            !isProjectSectionKey(key) && !isProjectSubsectionKey(key) && !isPersistedTopLevelSectionKey(key, timelineSectionKeySet)
+            !isProjectSectionKey(key) &&
+            !isProjectSubsectionKey(key) &&
+            !isPersistedTopLevelSectionKey(key, timelineSectionKeySet)
         )
       );
       for (const sectionKey of storedCollapsedSectionKeys) {
@@ -367,6 +403,53 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     });
   }, [projectGroups, timelineSectionKeySet]);
 
+  const loadProjectAssetCounts = useCallback(async () => {
+    const projectsWithAssets = projectGroups.filter((group) => group.project.rootPath);
+    if (projectsWithAssets.length === 0) {
+      setProjectAssetCounts({});
+      return;
+    }
+
+    const entries = await Promise.all(
+      projectsWithAssets.map(async ({ project }) => {
+        const counts = await Promise.all(
+          PROJECT_ASSET_CATEGORY_ORDER.map(async (category) => {
+            try {
+              const items = await ipcBridge.projectAssets.list.invoke({
+                projectId: project.id,
+                category,
+              });
+              return [category, items.length] as const;
+            } catch (error) {
+              console.error('[WorkspaceGroupedHistory] Failed to load asset counts:', {
+                projectId: project.id,
+                category,
+                error,
+              });
+              return [category, 0] as const;
+            }
+          })
+        );
+
+        return [project.id, Object.fromEntries(counts) as ProjectAssetCountMap] as const;
+      })
+    );
+
+    setProjectAssetCounts(Object.fromEntries(entries));
+  }, [projectGroups]);
+
+  useEffect(() => {
+    void loadProjectAssetCounts();
+  }, [loadProjectAssetCounts]);
+
+  useEffect(() => {
+    return addEventListener('project.assets.changed', (projectId) => {
+      if (!projectId || projectGroups.some((group) => group.project.id === projectId)) {
+        void loadProjectAssetCounts();
+      }
+    });
+  }, [loadProjectAssetCounts, projectGroups]);
+
   const orderedProjectGroups = useMemo(() => {
     return sortProjectGroupsByManualOrder(projectGroups, manualProjectOrder);
   }, [manualProjectOrder, projectGroups]);
@@ -374,6 +457,82 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   const orderedUnassignedTeams = useMemo(() => {
     return sortTeamsByManualOrder(unassignedTeams, manualTeamOrder);
   }, [manualTeamOrder, unassignedTeams]);
+
+  const pinnedIds = useMemo(() => pinnedConversations.map((c) => c.id), [pinnedConversations]);
+  const sectionVisibility = getSidebarSectionVisibility({
+    pinnedConversationCount: pinnedConversations.length + pinnedProjectGroups.length + pinnedTeams.length,
+    projectGroupCount: projectGroups.length,
+    unassignedTeamCount: unassignedTeams.length,
+    timelineSectionCount: timelineSections.length,
+  });
+
+  const expandableSectionKeys = useMemo(() => {
+    const keys: string[] = [];
+    if (pinnedConversations.length > 0 || pinnedProjectGroups.length > 0 || pinnedTeams.length > 0) {
+      keys.push('pinned');
+    }
+    if (sectionVisibility.showProjectsSection) {
+      keys.push('projects');
+      for (const group of projectGroups) {
+        keys.push(`project:${group.project.id}`);
+        keys.push(...getProjectSubsectionKeys(group.project.id));
+      }
+    }
+    if (sectionVisibility.showTeamsSection) {
+      keys.push('teams');
+    }
+    keys.push(...timelineSections.map((section) => section.timeline));
+    return keys;
+  }, [
+    pinnedConversations.length,
+    pinnedProjectGroups.length,
+    pinnedTeams.length,
+    projectGroups,
+    sectionVisibility.showProjectsSection,
+    sectionVisibility.showTeamsSection,
+    timelineSections,
+  ]);
+
+  useEffect(() => {
+    if (!onHistoryExpansionStateChange) {
+      return;
+    }
+    onHistoryExpansionStateChange({
+      hasExpandableItems: expandableSectionKeys.length > 0,
+      fullyExpanded:
+        expandableSectionKeys.length > 0 && expandableSectionKeys.every((key) => !collapsedSections.has(key)),
+    });
+  }, [collapsedSections, expandableSectionKeys, onHistoryExpansionStateChange]);
+
+  useEffect(() => {
+    if (!historyExpansionRequest || expandableSectionKeys.length === 0) {
+      return;
+    }
+
+    setCollapsedSections((current) => {
+      const next = new Set([...current].filter((key) => !expandableSectionKeys.includes(key)));
+
+      if (historyExpansionRequest.mode === 'collapse') {
+        for (const key of expandableSectionKeys) {
+          next.add(key);
+        }
+      }
+
+      const projectIds = projectGroups.map((group) => group.project.id);
+      const expandedProjectIds = projectIds.filter((projectId) => !next.has(`project:${projectId}`));
+      const projectSubsectionKeys = projectGroups.flatMap((group) => getProjectSubsectionKeys(group.project.id));
+      const expandedProjectSubsectionKeys = projectSubsectionKeys.filter((key) => !next.has(key));
+      const collapsedSectionKeys = [...next].filter((sectionKey) =>
+        isPersistedTopLevelSectionKey(sectionKey, timelineSectionKeySet)
+      );
+
+      writeExpandedProjectIds(expandedProjectIds);
+      writeExpandedProjectSubsectionKeys(expandedProjectSubsectionKeys);
+      writeCollapsedSectionKeys(collapsedSectionKeys);
+
+      return next;
+    });
+  }, [expandableSectionKeys, historyExpansionRequest, projectGroups, timelineSectionKeySet]);
 
   const handleProjectDragStart = useCallback(
     (event: { active: { id: string | number } }) => {
@@ -546,10 +705,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     });
 
   const getConversationRowProps = useCallback(
-    (
-      conversation: TChatConversation,
-      options?: { suppressPinnedIndicator?: boolean }
-    ): ConversationRowProps => ({
+    (conversation: TChatConversation, options?: { suppressPinnedIndicator?: boolean }): ConversationRowProps => ({
       conversation,
       isGenerating: isConversationGenerating(conversation.id),
       hasCompletionUnread: hasCompletionUnread(conversation.id),
@@ -768,6 +924,51 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     }
   }, [editingProject, projectName, projectRootPath, t]);
 
+  const handleBrowseProjectFolder = useCallback(async () => {
+    if (isElectronDesktop()) {
+      try {
+        const files = await ipcBridge.dialog.showOpen.invoke({ properties: ['openDirectory', 'createDirectory'] });
+        if (files?.[0]) {
+          setProjectRootPath(files[0]);
+        }
+      } catch (error) {
+        console.error('[WorkspaceGroupedHistory] Failed to browse project folder:', error);
+        Message.error(t('conversation.history.projectCreateFailed'));
+      }
+      return;
+    }
+
+    setShowProjectDirectorySelector(true);
+  }, [t]);
+
+  const handleSelectProjectDirectoryFromModal = useCallback((paths: string[] | undefined) => {
+    if (paths?.[0]) {
+      setProjectRootPath(paths[0]);
+    }
+    setShowProjectDirectorySelector(false);
+  }, []);
+
+  const renderProjectRootPathField = useCallback(
+    () => (
+      <div className='flex items-center gap-8px'>
+        <Input
+          className='min-w-0 flex-1'
+          value={projectRootPath}
+          onChange={setProjectRootPath}
+          placeholder={t('conversation.history.projectFolderPlaceholder')}
+        />
+        <Button
+          type='secondary'
+          className='!h-32px !w-40px !min-w-40px !rounded-8px !p-0'
+          icon={<FolderOpen theme='outline' size='16' />}
+          title={t('fileSelection.selectDirectory')}
+          onClick={() => void handleBrowseProjectFolder()}
+        />
+      </div>
+    ),
+    [handleBrowseProjectFolder, projectRootPath, t]
+  );
+
   const handleDeleteProject = useCallback(
     (project: TProject) => {
       Modal.confirm({
@@ -816,6 +1017,29 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
       });
     },
     [navigate]
+  );
+
+  const handleOpenProjectAssetCategory = useCallback(
+    (project: TProject, category: ProjectAssetCategory) => {
+      openProjectAssetInspector({ projectId: project.id, category });
+
+      const activeProjectConversation = conversations.find((item) => item.id === id && item.projectId === project.id);
+      if (activeProjectConversation) {
+        return;
+      }
+
+      const candidateConversation = conversations
+        .filter((item) => item.projectId === project.id)
+        .toSorted((left, right) => (right.modifyTime || 0) - (left.modifyTime || 0))[0];
+
+      if (candidateConversation) {
+        void navigate(`/conversation/${candidateConversation.id}`);
+        return;
+      }
+
+      handleCreateConversationInProject(project);
+    },
+    [conversations, handleCreateConversationInProject, id, navigate]
   );
 
   const handleToggleProjectPinned = useCallback(
@@ -928,7 +1152,10 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     return (
       <div
         key={team.id}
-        className={classNames('group relative', reorderMode && 'rounded-8px transition-shadow transition-transform duration-150')}
+        className={classNames(
+          'group relative',
+          reorderMode && 'rounded-8px transition-shadow transition-transform duration-150'
+        )}
         {...(reorderMode
           ? {
               ...dragListeners?.attributes,
@@ -1057,6 +1284,10 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     const workspaceSectionKey = `${sectionKey}:workspaces`;
     const teamsSectionKey = `${sectionKey}:teams`;
     const assetsSectionKey = `${sectionKey}:assets`;
+    const assetCounts = projectAssetCounts[project.id] ?? {};
+    const totalAssetCount = PROJECT_ASSET_CATEGORY_ORDER.reduce((sum, assetCategory) => {
+      return sum + (assetCounts[assetCategory] ?? 0);
+    }, 0);
 
     const renderProjectSubheader = (
       key: string,
@@ -1300,7 +1531,10 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 <div className='flex flex-col gap-1px'>
                   {workspaceGroups.length > 0
                     ? workspaceGroups.map((group) => (
-                        <div key={group.workspace} className={classNames({ 'pl-18px': !collapsed && !inPinnedSection })}>
+                        <div
+                          key={group.workspace}
+                          className={classNames({ 'pl-18px': !collapsed && !inPinnedSection })}
+                        >
                           <WorkspaceCollapse
                             expanded={expandedWorkspaces.includes(group.workspace)}
                             onToggle={() => handleToggleWorkspace(group.workspace)}
@@ -1337,28 +1571,50 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 </div>
               )}
 
-              {renderProjectSubheader(
-                assetsSectionKey,
-                <FolderOpen theme='outline' size='14' />,
-                t('conversation.history.projectAssetsSection')
+              {project.rootPath && (
+                <>
+                  {renderProjectSubheader(
+                    assetsSectionKey,
+                    <FolderOpen theme='outline' size='14' />,
+                    t('conversation.history.projectAssetsSection'),
+                    totalAssetCount > 0 ? totalAssetCount : undefined
+                  )}
+                  {!collapsedSections.has(assetsSectionKey) && (
+                    <div className='flex flex-col gap-2px'>
+                      {PROJECT_ASSET_CATEGORY_ORDER.map((assetCategory) => {
+                        const assetCount = assetCounts[assetCategory] ?? 0;
+
+                        return (
+                          <Button
+                            key={assetCategory}
+                            type='text'
+                            className='!h-auto !justify-start !rounded-10px !px-10px !py-8px !pl-42px text-left hover:!bg-fill-2'
+                            onClick={() => handleOpenProjectAssetCategory(project, assetCategory)}
+                          >
+                            <span className='flex min-w-0 w-full items-center gap-8px text-13px text-t-primary'>
+                              <FolderOpen theme='outline' size='14' />
+                              <span className='min-w-0 flex-1 truncate'>
+                                {t(getProjectAssetCategoryLabelKey(assetCategory))}
+                              </span>
+                              {assetCount > 0 && (
+                                <span className='shrink-0 rounded-10px bg-fill-3 px-6px py-1px text-10px leading-14px text-t-secondary'>
+                                  {assetCount}
+                                </span>
+                              )}
+                            </span>
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               )}
-              {!collapsedSections.has(assetsSectionKey) &&
-                renderPlaceholder(t('conversation.history.projectAssetsPlaceholder'))}
             </div>
           )}
         </div>
       </div>
     );
   };
-
-  // Collect all sortable IDs for the pinned section
-  const pinnedIds = useMemo(() => pinnedConversations.map((c) => c.id), [pinnedConversations]);
-  const sectionVisibility = getSidebarSectionVisibility({
-    pinnedConversationCount: pinnedConversations.length + pinnedProjectGroups.length + pinnedTeams.length,
-    projectGroupCount: projectGroups.length,
-    unassignedTeamCount: unassignedTeams.length,
-    timelineSectionCount: timelineSections.length,
-  });
 
   return (
     <>
@@ -1510,6 +1766,12 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
         visible={showExportDirectorySelector}
         onConfirm={handleSelectExportDirectoryFromModal}
         onCancel={() => setShowExportDirectorySelector(false)}
+      />
+
+      <DirectorySelectionModal
+        visible={showProjectDirectorySelector}
+        onConfirm={handleSelectProjectDirectoryFromModal}
+        onCancel={() => setShowProjectDirectorySelector(false)}
       />
 
       <WorkspaceChatCreateModal
@@ -1798,21 +2060,24 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                 >
                   <span className='text-13px text-t-secondary font-bold leading-20px'>{t('team.sider.title')}</span>
                 </Button>
-                {!isProjectReorderMode && sectionVisibility.showUnassignedTeamsList && !collapsedSections.has('teams') && unassignedTeams.length > 1 && (
-                  <Button
-                    type='text'
-                    size='mini'
-                    className={classNames(
-                      '!h-26px !rounded-6px !px-8px !text-12px font-medium',
-                      isTeamReorderMode
-                        ? '!bg-[rgba(var(--success-6),0.14)] !text-[rgb(var(--success-6))] hover:!bg-[rgba(var(--success-6),0.2)]'
-                        : '!text-t-secondary hover:!bg-fill-3 hover:!text-t-primary'
-                    )}
-                    onClick={() => setIsTeamReorderMode((value) => !value)}
-                  >
-                    {isTeamReorderMode ? t('team.sider.reorderModeExit') : t('team.sider.reorderModeEnter')}
-                  </Button>
-                )}
+                {!isProjectReorderMode &&
+                  sectionVisibility.showUnassignedTeamsList &&
+                  !collapsedSections.has('teams') &&
+                  unassignedTeams.length > 1 && (
+                    <Button
+                      type='text'
+                      size='mini'
+                      className={classNames(
+                        '!h-26px !rounded-6px !px-8px !text-12px font-medium',
+                        isTeamReorderMode
+                          ? '!bg-[rgba(var(--success-6),0.14)] !text-[rgb(var(--success-6))] hover:!bg-[rgba(var(--success-6),0.2)]'
+                          : '!text-t-secondary hover:!bg-fill-3 hover:!text-t-primary'
+                      )}
+                      onClick={() => setIsTeamReorderMode((value) => !value)}
+                    >
+                      {isTeamReorderMode ? t('team.sider.reorderModeExit') : t('team.sider.reorderModeEnter')}
+                    </Button>
+                  )}
                 {!isProjectReorderMode && !isTeamReorderMode && (
                   <Button
                     type='text'
@@ -1851,9 +2116,17 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
                   onDragCancel={handleTeamDragCancel}
                   onDragEnd={(event) => void handleTeamDragEnd(event)}
                 >
-                  <SortableContext items={orderedUnassignedTeams.map((team) => team.id)} strategy={verticalListSortingStrategy}>
+                  <SortableContext
+                    items={orderedUnassignedTeams.map((team) => team.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
                     {orderedUnassignedTeams.map((team) => (
-                      <SortableTeamCard key={team.id} team={team} reorderMode={isTeamReorderMode} renderTeam={renderTeam} />
+                      <SortableTeamCard
+                        key={team.id}
+                        team={team}
+                        reorderMode={isTeamReorderMode}
+                        renderTeam={renderTeam}
+                      />
                     ))}
                   </SortableContext>
                   <DragOverlay>
@@ -1965,11 +2238,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
             onChange={setProjectName}
             placeholder={t('conversation.history.projectNamePlaceholder')}
           />
-          <Input
-            value={projectRootPath}
-            onChange={setProjectRootPath}
-            placeholder={t('conversation.history.projectFolderPlaceholder')}
-          />
+          {renderProjectRootPathField()}
         </div>
       </Modal>
       <Modal
@@ -1989,11 +2258,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
             onChange={setProjectName}
             placeholder={t('conversation.history.projectNamePlaceholder')}
           />
-          <Input
-            value={projectRootPath}
-            onChange={setProjectRootPath}
-            placeholder={t('conversation.history.projectFolderPlaceholder')}
-          />
+          {renderProjectRootPathField()}
         </div>
       </Modal>
     </>

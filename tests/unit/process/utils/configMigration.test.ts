@@ -2,6 +2,15 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import os from 'os';
 import path from 'path';
 
+type ConfigStoreLike = {
+  get: (key: string) => Promise<unknown>;
+  set: (key: string, value: unknown) => Promise<unknown>;
+};
+
+type McpConfigEntryLike = {
+  id: string;
+};
+
 // Helper: encode data the same way JsonFileBuilder does
 const encodeConfig = (data: unknown): string =>
   Buffer.from(encodeURIComponent(JSON.stringify(data))).toString('base64');
@@ -64,7 +73,7 @@ describe('migrateFromElectronConfig', () => {
       }),
     };
     const { migrateFromElectronConfig } = await import('../../../../src/process/utils/configMigration');
-    await migrateFromElectronConfig(configStore as any);
+    await migrateFromElectronConfig(configStore as ConfigStoreLike);
     // set should never be called — migration was already done
     expect(configStore.set).not.toHaveBeenCalled();
   });
@@ -85,7 +94,7 @@ describe('migrateFromElectronConfig', () => {
       readFileSync: vi.fn().mockReturnValue(''),
     }));
     const { migrateFromElectronConfig } = await import('../../../../src/process/utils/configMigration');
-    await migrateFromElectronConfig(configStore as any);
+    await migrateFromElectronConfig(configStore as ConfigStoreLike);
     expect(configStore.set).not.toHaveBeenCalled();
   });
 
@@ -117,7 +126,7 @@ describe('migrateFromElectronConfig', () => {
       readFileSync: vi.fn().mockReturnValue(encodedSource),
     }));
     const { migrateFromElectronConfig } = await import('../../../../src/process/utils/configMigration');
-    await migrateFromElectronConfig(configStore as any);
+    await migrateFromElectronConfig(configStore as ConfigStoreLike);
     expect(configStore.set).not.toHaveBeenCalledWith('mcp.config', expect.anything());
     expect(configStore.set).toHaveBeenCalledWith('migration.electronConfigImported', true);
   });
@@ -136,7 +145,7 @@ describe('migrateFromElectronConfig', () => {
       readFileSync: vi.fn().mockReturnValue(''), // empty → decodes to {}
     }));
     const { migrateFromElectronConfig } = await import('../../../../src/process/utils/configMigration');
-    await migrateFromElectronConfig(configStore as any);
+    await migrateFromElectronConfig(configStore as ConfigStoreLike);
     expect(configStore.set).not.toHaveBeenCalled();
   });
 
@@ -161,7 +170,7 @@ describe('migrateFromElectronConfig', () => {
       readFileSync: vi.fn().mockReturnValue(encodedSource),
     }));
     const { migrateFromElectronConfig } = await import('../../../../src/process/utils/configMigration');
-    await migrateFromElectronConfig(configStore as any);
+    await migrateFromElectronConfig(configStore as ConfigStoreLike);
 
     expect(configStore.set).toHaveBeenCalledWith('model.config', sourceData['model.config']);
     expect(configStore.set).toHaveBeenCalledWith('gemini.config', sourceData['gemini.config']);
@@ -190,7 +199,7 @@ describe('migrateFromElectronConfig', () => {
       readFileSync: vi.fn().mockReturnValue(encodedSource),
     }));
     const { migrateFromElectronConfig } = await import('../../../../src/process/utils/configMigration');
-    await migrateFromElectronConfig(configStore as any);
+    await migrateFromElectronConfig(configStore as ConfigStoreLike);
 
     expect(configStore.set).not.toHaveBeenCalledWith('model.config', expect.anything());
     // flag is still set even though no keys were actually written
@@ -235,13 +244,13 @@ describe('migrateFromElectronConfig', () => {
       readFileSync: vi.fn().mockReturnValue(encodedSource),
     }));
     const { migrateFromElectronConfig } = await import('../../../../src/process/utils/configMigration');
-    await migrateFromElectronConfig(configStore as any);
+    await migrateFromElectronConfig(configStore as ConfigStoreLike);
 
     const writtenMcp = (configStore.set as ReturnType<typeof vi.fn>).mock.calls.find(
       ([k]) => k === 'mcp.config'
     )?.[1] as unknown[];
     expect(writtenMcp).toHaveLength(1);
-    expect((writtenMcp[0] as any).id).toBe('user-mcp');
+    expect((writtenMcp[0] as McpConfigEntryLike).id).toBe('user-mcp');
   });
 });
 
@@ -264,7 +273,7 @@ describe('importConfigFromFile', () => {
       readFileSync: vi.fn().mockReturnValue(''),
     }));
     const { importConfigFromFile } = await import('../../../../src/process/utils/configMigration');
-    await importConfigFromFile('/nonexistent/path.txt', false, configStore as any);
+    await importConfigFromFile('/nonexistent/path.txt', false, configStore as ConfigStoreLike);
     expect(configStore.set).not.toHaveBeenCalled();
   });
 
@@ -284,7 +293,7 @@ describe('importConfigFromFile', () => {
       readFileSync: vi.fn().mockReturnValue(encodedSource),
     }));
     const { importConfigFromFile } = await import('../../../../src/process/utils/configMigration');
-    await importConfigFromFile('/path/aionui-config.txt', false, configStore as any);
+    await importConfigFromFile('/path/aionui-config.txt', false, configStore as ConfigStoreLike);
     expect(configStore.set).not.toHaveBeenCalledWith('model.config', expect.anything());
     expect(configStore.set).toHaveBeenCalledWith('gemini.config', sourceData['gemini.config']);
   });
@@ -305,7 +314,7 @@ describe('importConfigFromFile', () => {
       readFileSync: vi.fn().mockReturnValue(encodedSource),
     }));
     const { importConfigFromFile } = await import('../../../../src/process/utils/configMigration');
-    await importConfigFromFile('/path/aionui-config.txt', true, configStore as any);
+    await importConfigFromFile('/path/aionui-config.txt', true, configStore as ConfigStoreLike);
     expect(configStore.set).toHaveBeenCalledWith('model.config', sourceData['model.config']);
   });
 
@@ -346,12 +355,12 @@ describe('importConfigFromFile', () => {
       readFileSync: vi.fn().mockReturnValue(encodedSource),
     }));
     const { importConfigFromFile } = await import('../../../../src/process/utils/configMigration');
-    await importConfigFromFile('/path/aionui-config.txt', true, configStore as any);
+    await importConfigFromFile('/path/aionui-config.txt', true, configStore as ConfigStoreLike);
     const written = (configStore.set as ReturnType<typeof vi.fn>).mock.calls.find(
       ([k]) => k === 'mcp.config'
     )?.[1] as unknown[];
     expect(written).toHaveLength(1);
-    expect((written[0] as any).id).toBe('user');
+    expect((written[0] as McpConfigEntryLike).id).toBe('user');
   });
 
   it('resolves relative path and warns', async () => {
@@ -369,7 +378,7 @@ describe('importConfigFromFile', () => {
       readFileSync: vi.fn().mockReturnValue(''),
     }));
     const { importConfigFromFile } = await import('../../../../src/process/utils/configMigration');
-    await importConfigFromFile('relative/path.txt', false, configStore as any);
+    await importConfigFromFile('relative/path.txt', false, configStore as ConfigStoreLike);
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('relative path'), expect.any(String));
     warnSpy.mockRestore();
   });

@@ -131,7 +131,9 @@ export class SqliteTeamRepository implements ITeamRepository {
       return;
     }
 
-    const teamColumns = new Set((db.pragma('table_info(teams)') as Array<{ name: string }>).map((column) => column.name));
+    const teamColumns = new Set(
+      (db.pragma('table_info(teams)') as Array<{ name: string }>).map((column) => column.name)
+    );
     if (!teamColumns.has('sort_order')) {
       db.exec('ALTER TABLE teams ADD COLUMN sort_order INTEGER');
     }
@@ -177,7 +179,9 @@ export class SqliteTeamRepository implements ITeamRepository {
     const db = await this.getDb();
     this.ensureTeamSortOrderColumn(db);
     const rows = db
-      .prepare('SELECT * FROM teams WHERE user_id = ? ORDER BY pinned_at DESC NULLS LAST, sort_order ASC NULLS LAST, updated_at DESC')
+      .prepare(
+        'SELECT * FROM teams WHERE user_id = ? ORDER BY pinned_at DESC NULLS LAST, sort_order ASC NULLS LAST, updated_at DESC'
+      )
       .all(userId) as TeamRow[];
     return rows.map(rowToTeam);
   }

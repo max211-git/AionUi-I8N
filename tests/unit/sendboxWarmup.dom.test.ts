@@ -35,6 +35,8 @@ const mockUsePasteService = vi.fn(() => ({
   onPaste: vi.fn(),
   onFocus: vi.fn(),
 }));
+const mockI18n = { language: 'en-US' };
+const mockTranslate = (key: string) => key;
 
 vi.mock('@/common', () => ({
   ipcBridge: {
@@ -78,7 +80,12 @@ vi.mock('@arco-design/web-react', () => ({
   Button: ({ onClick, children, icon, ...props }: React.ComponentProps<'button'>) =>
     React.createElement('button', { onClick, ...props }, icon ?? children),
   Input: {
-    TextArea: ({ onFocus, onBlur, ...props }: React.ComponentProps<'textarea'>) =>
+    TextArea: ({
+      onFocus,
+      onBlur,
+      autoSize: _autoSize,
+      ...props
+    }: React.ComponentProps<'textarea'> & { autoSize?: unknown }) =>
       React.createElement('textarea', { onFocus, onBlur, ...props }),
   },
   Message: {
@@ -95,10 +102,8 @@ vi.mock('@icon-park/react', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
-    i18n: {
-      language: 'en-US',
-    },
+    t: mockTranslate,
+    i18n: mockI18n,
   }),
 }));
 

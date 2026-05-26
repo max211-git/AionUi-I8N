@@ -85,13 +85,9 @@ vi.mock('@arco-design/web-react', () => ({
     </div>
   ),
   Menu: Object.assign(
-    ({
-      children,
-      onClickMenuItem,
-    }: {
-      children?: React.ReactNode;
-      onClickMenuItem?: (key: string) => void;
-    }) => <div onClick={() => onClickMenuItem?.('remember-project')}>{children}</div>,
+    ({ children, onClickMenuItem }: { children?: React.ReactNode; onClickMenuItem?: (key: string) => void }) => (
+      <div onClick={() => onClickMenuItem?.('remember-project')}>{children}</div>
+    ),
     {
       Item: ({ children }: { children?: React.ReactNode }) => <button type='button'>{children}</button>,
     }
@@ -113,18 +109,15 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock(
-  '@/renderer/pages/conversation/GroupedHistory/components/projectMemory/ProjectMemoryEntryEditorModal',
-  () => ({
-    __esModule: true,
-    default: (props: {
-      visible?: boolean;
-      projectId: string;
-      title?: string;
-      initialDraft?: { name?: string; content?: string; type?: string };
-    }) => mockEditorModal(props),
-  })
-);
+vi.mock('@/renderer/pages/conversation/GroupedHistory/components/projectMemory/ProjectMemoryEntryEditorModal', () => ({
+  __esModule: true,
+  default: (props: {
+    visible?: boolean;
+    projectId: string;
+    title?: string;
+    initialDraft?: { name?: string; content?: string; type?: string };
+  }) => mockEditorModal(props),
+}));
 
 describe('MessageText attachment paths', () => {
   beforeEach(() => {
@@ -191,7 +184,9 @@ describe('MessageText attachment paths', () => {
     };
 
     const { rerender } = render(
-      <ConversationProvider value={{ conversationId: 'conv-1', workspace: '/workspace/demo', projectId: 'project-1', type: 'acp' }}>
+      <ConversationProvider
+        value={{ conversationId: 'conv-1', workspace: '/workspace/demo', projectId: 'project-1', type: 'acp' }}
+      >
         <MessageText message={message} />
       </ConversationProvider>
     );
@@ -228,7 +223,9 @@ describe('MessageText attachment paths', () => {
     };
 
     render(
-      <ConversationProvider value={{ conversationId: 'conv-1', workspace: '/workspace/demo', projectId: 'project-1', type: 'acp' }}>
+      <ConversationProvider
+        value={{ conversationId: 'conv-1', workspace: '/workspace/demo', projectId: 'project-1', type: 'acp' }}
+      >
         <MessageText message={message} />
       </ConversationProvider>
     );

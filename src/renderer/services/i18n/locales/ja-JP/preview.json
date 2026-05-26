@@ -57,6 +57,7 @@
   "openInPanelTooltip": "プレビューパネルで表示",
   "mermaidTitle": "Mermaid 図",
   "largeTextTruncatedHint": "大きなファイルのプレビューでは、パフォーマンスのため先頭 {{count}} 文字のみ表示します。",
+  "videoUnavailable": "Video preview is unavailable",
   "errors": {
     "missingFilePath": "ファイルパスが指定されていません",
     "openWithoutPath": "ファイルパスがないため開けません",

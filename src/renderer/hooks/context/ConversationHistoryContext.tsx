@@ -22,13 +22,8 @@ export const ConversationHistoryProvider: React.FC<React.PropsWithChildren> = ({
 
   const groupedHistory = useMemo(() => {
     const teams = Array.isArray(conversationListSync.teams) ? conversationListSync.teams : [];
-    const translate = typeof t === 'function' ? t : ((key: string) => key);
-    return buildGroupedHistory(
-      conversationListSync.conversations,
-      conversationListSync.projects,
-      teams,
-      translate
-    );
+    const translate = typeof t === 'function' ? t : (key: string) => key;
+    return buildGroupedHistory(conversationListSync.conversations, conversationListSync.projects, teams, translate);
   }, [conversationListSync.conversations, conversationListSync.projects, conversationListSync.teams, t]);
 
   const value = useMemo<ConversationHistoryContextValue>(() => {

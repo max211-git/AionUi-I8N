@@ -9,6 +9,12 @@ const mockMessagesGet = vi.fn();
 const mockDesktopPathGet = vi.fn();
 const mockWriteFile = vi.fn();
 const mockCopyText = vi.fn();
+const mockTranslate = (key: string, options?: Record<string, unknown>) => {
+  if (key === 'messages.export.saveSuccess') {
+    return `${key}:${options?.path ?? ''}`;
+  }
+  return key;
+};
 
 vi.mock('@/common', () => ({
   ipcBridge: {
@@ -73,12 +79,7 @@ vi.mock('@/renderer/utils/ui/clipboard', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: vi.fn(() => ({
-    t: (key: string, options?: Record<string, unknown>) => {
-      if (key === 'messages.export.saveSuccess') {
-        return `${key}:${options?.path ?? ''}`;
-      }
-      return key;
-    },
+    t: mockTranslate,
   })),
 }));
 

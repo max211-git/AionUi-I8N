@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const childHandlers = vi.hoisted(() => new Map<string, (...args: any[]) => void>());
 const mockChild = vi.hoisted(() => ({
@@ -30,6 +30,8 @@ vi.mock('@process/utils/shellEnv', () => ({
 import { ForkTask } from '@process/worker/fork/ForkTask';
 
 describe('ForkTask unexpected exit handling', () => {
+  const createdTasks: ForkTask<{ foo: string }>[] = [];
+
   beforeEach(() => {
     childHandlers.clear();
     mockFork.mockClear();
@@ -38,18 +40,27 @@ describe('ForkTask unexpected exit handling', () => {
     mockChild.postMessage.mockClear();
   });
 
+  afterEach(() => {
+    for (const task of createdTasks.splice(0)) {
+      task.kill();
+    }
+  });
+
   it('emits exit when the worker process dies unexpectedly', () => {
     const task = new ForkTask('/fake-worker.js', { foo: 'bar' });
+    createdTasks.push(task);
     const onExit = vi.fn();
     task.on('exit', onExit);
 
     childHandlers.get('exit')?.(1, null);
 
     expect(onExit.mock.calls[0]?.[0]).toEqual({ code: 1, signal: null });
+    expect((ForkTask as unknown as { activeTasks: Set<unknown> }).activeTasks.has(task)).toBe(false);
   });
 
   it('does not emit exit after a controlled kill', () => {
     const task = new ForkTask('/fake-worker.js', { foo: 'bar' });
+    createdTasks.push(task);
     const onExit = vi.fn();
     task.on('exit', onExit);
 

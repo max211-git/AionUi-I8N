@@ -8,7 +8,33 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AcpConnection } from '../../src/process/agent/acp/AcpConnection';
 import { AcpAgent } from '../../src/process/agent/acp/index';
 import { parseInitializeResult } from '../../src/common/types/acpTypes';
+import type { AcpAgentConfig, AcpBackend } from '../../src/process/agent/acp/index';
 import type { AcpSessionConfigOption, AcpSessionModels } from '../../src/types/acpTypes';
+
+type SessionResponse = {
+  sessionId?: string;
+  _meta?: { models?: AcpSessionModels };
+  configOptions?: unknown;
+  models?: unknown;
+};
+
+type AcpConnectionTestState = AcpConnection & {
+  backend: AcpBackend;
+  sendRequest: (method: string, params?: unknown) => Promise<SessionResponse>;
+  configOptions: AcpSessionConfigOption[] | null;
+  models: AcpSessionModels | null;
+  initializeResult: ReturnType<typeof parseInitializeResult>;
+};
+
+type AcpAgentTestState = AcpAgent & {
+  connection: AcpConnection;
+  extra: { acpSessionId?: string };
+  onSessionIdUpdate?: (sessionId: string) => void;
+  createOrResumeSession: () => Promise<void>;
+};
+
+const getConnectionState = (conn: AcpConnection): AcpConnectionTestState => conn as unknown as AcpConnectionTestState;
+const getAgentState = (agent: AcpAgent): AcpAgentTestState => agent as unknown as AcpAgentTestState;
 
 vi.mock('@process/utils/initStorage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@process/utils/initStorage')>();
@@ -23,24 +49,25 @@ vi.mock('@process/utils/initStorage', async (importOriginal) => {
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-function makeConnection(backend: string = 'codex'): AcpConnection {
+function makeConnection(backend: AcpBackend = 'codex'): AcpConnection {
   const conn = new AcpConnection();
-  (conn as any).backend = backend;
+  getConnectionState(conn).backend = backend;
   return conn;
 }
 
-function makeAgent(backend: string, acpSessionId?: string): AcpAgent {
-  return new AcpAgent({
+function makeAgent(backend: AcpBackend, acpSessionId?: string): AcpAgent {
+  const config: AcpAgentConfig = {
     id: 'test-agent',
-    backend: backend as any,
+    backend,
     workingDir: '/tmp',
     extra: {
-      backend: backend as any,
+      backend,
       workspace: '/tmp',
       acpSessionId,
     },
     onStreamEvent: vi.fn(),
-  });
+  };
+  return new AcpAgent(config);
 }
 
 const CONFIG_OPTIONS: AcpSessionConfigOption[] = [
@@ -61,7 +88,7 @@ describe('AcpConnection.loadSession', () => {
   });
 
   it('sets sessionId from response when present', async () => {
-    vi.spyOn(conn as any, 'sendRequest').mockResolvedValue({ sessionId: 'new-session-456' });
+    vi.spyOn(getConnectionState(conn), 'sendRequest').mockResolvedValue({ sessionId: 'new-session-456' });
 
     await conn.loadSession('original-123', '/tmp');
 
@@ -69,7 +96,7 @@ describe('AcpConnection.loadSession', () => {
   });
 
   it('falls back to the passed sessionId when response omits it', async () => {
-    vi.spyOn(conn as any, 'sendRequest').mockResolvedValue({});
+    vi.spyOn(getConnectionState(conn), 'sendRequest').mockResolvedValue({});
 
     await conn.loadSession('original-123', '/tmp');
 
@@ -77,7 +104,7 @@ describe('AcpConnection.loadSession', () => {
   });
 
   it('calls session/load endpoint with correct params', async () => {
-    const sendRequest = vi.spyOn(conn as any, 'sendRequest').mockResolvedValue({ sessionId: 's1' });
+    const sendRequest = vi.spyOn(getConnectionState(conn), 'sendRequest').mockResolvedValue({ sessionId: 's1' });
     // normalizeCwdForAgent returns the absolute path for codex
     await conn.loadSession('s1', '/tmp');
 
@@ -86,7 +113,7 @@ describe('AcpConnection.loadSession', () => {
 
   it('returns the raw response', async () => {
     const mockResponse = { sessionId: 's1', extra: 'data' };
-    vi.spyOn(conn as any, 'sendRequest').mockResolvedValue(mockResponse);
+    vi.spyOn(getConnectionState(conn), 'sendRequest').mockResolvedValue(mockResponse);
 
     const result = await conn.loadSession('s1', '/tmp');
 
@@ -104,43 +131,43 @@ describe('AcpConnection.parseSessionCapabilities (via loadSession)', () => {
   });
 
   it('parses configOptions from response', async () => {
-    vi.spyOn(conn as any, 'sendRequest').mockResolvedValue({ configOptions: CONFIG_OPTIONS });
+    vi.spyOn(getConnectionState(conn), 'sendRequest').mockResolvedValue({ configOptions: CONFIG_OPTIONS });
 
     await conn.loadSession('s1', '/tmp');
 
-    expect((conn as any).configOptions).toEqual(CONFIG_OPTIONS);
+    expect(getConnectionState(conn).configOptions).toEqual(CONFIG_OPTIONS);
   });
 
   it('parses top-level models from response', async () => {
-    vi.spyOn(conn as any, 'sendRequest').mockResolvedValue({ models: MODELS });
+    vi.spyOn(getConnectionState(conn), 'sendRequest').mockResolvedValue({ models: MODELS });
 
     await conn.loadSession('s1', '/tmp');
 
-    expect((conn as any).models).toEqual(MODELS);
+    expect(getConnectionState(conn).models).toEqual(MODELS);
   });
 
   it('falls back to _meta.models when top-level models is absent', async () => {
-    vi.spyOn(conn as any, 'sendRequest').mockResolvedValue({ _meta: { models: MODELS } });
+    vi.spyOn(getConnectionState(conn), 'sendRequest').mockResolvedValue({ _meta: { models: MODELS } });
 
     await conn.loadSession('s1', '/tmp');
 
-    expect((conn as any).models).toEqual(MODELS);
+    expect(getConnectionState(conn).models).toEqual(MODELS);
   });
 
   it('ignores configOptions when response value is not an array', async () => {
-    vi.spyOn(conn as any, 'sendRequest').mockResolvedValue({ configOptions: 'bad-value' });
+    vi.spyOn(getConnectionState(conn), 'sendRequest').mockResolvedValue({ configOptions: 'bad-value' });
 
     await conn.loadSession('s1', '/tmp');
 
-    expect((conn as any).configOptions).toBeNull();
+    expect(getConnectionState(conn).configOptions).toBeNull();
   });
 
   it('does not overwrite models when response has no models field', async () => {
-    vi.spyOn(conn as any, 'sendRequest').mockResolvedValue({});
+    vi.spyOn(getConnectionState(conn), 'sendRequest').mockResolvedValue({});
 
     await conn.loadSession('s1', '/tmp');
 
-    expect((conn as any).models).toBeNull();
+    expect(getConnectionState(conn).models).toBeNull();
   });
 });
 
@@ -149,12 +176,12 @@ describe('AcpConnection.parseSessionCapabilities (via loadSession)', () => {
 describe('AcpAgent.createOrResumeSession — Codex routing', () => {
   it('uses connection.resumeSession for resume routing', async () => {
     const agent = makeAgent('codex', 'session-codex-1');
-    const conn: AcpConnection = (agent as any).connection;
+    const conn = getAgentState(agent).connection;
 
-    const resumeSession = vi.spyOn(conn, 'resumeSession').mockResolvedValue({ sessionId: 'session-codex-1' } as any);
-    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'fresh' } as any);
+    const resumeSession = vi.spyOn(conn, 'resumeSession').mockResolvedValue({ sessionId: 'session-codex-1' });
+    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'fresh' });
 
-    await (agent as any).createOrResumeSession();
+    await getAgentState(agent).createOrResumeSession();
 
     expect(resumeSession).toHaveBeenCalledWith(
       'session-codex-1',
@@ -169,12 +196,12 @@ describe('AcpAgent.createOrResumeSession — Codex routing', () => {
 
   it('routes non-Codex backends to newSession', async () => {
     const agent = makeAgent('claude', 'session-claude-1');
-    const conn: AcpConnection = (agent as any).connection;
+    const conn = getAgentState(agent).connection;
 
-    const resumeSession = vi.spyOn(conn, 'resumeSession').mockResolvedValue({ sessionId: 'session-claude-1' } as any);
-    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'session-claude-1' } as any);
+    const resumeSession = vi.spyOn(conn, 'resumeSession').mockResolvedValue({ sessionId: 'session-claude-1' });
+    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'session-claude-1' });
 
-    await (agent as any).createOrResumeSession();
+    await getAgentState(agent).createOrResumeSession();
 
     expect(resumeSession).toHaveBeenCalled();
     expect(newSession).not.toHaveBeenCalled();
@@ -182,24 +209,24 @@ describe('AcpAgent.createOrResumeSession — Codex routing', () => {
 
   it('falls back to fresh session when resumeSession throws', async () => {
     const agent = makeAgent('codex', 'session-expired');
-    const conn: AcpConnection = (agent as any).connection;
+    const conn = getAgentState(agent).connection;
 
     vi.spyOn(conn, 'resumeSession').mockRejectedValue(new Error('rollout expired'));
-    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'fresh-session' } as any);
+    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'fresh-session' });
 
-    await (agent as any).createOrResumeSession();
+    await getAgentState(agent).createOrResumeSession();
 
     expect(newSession).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ mcpServers: [] }));
   });
 
   it('creates a fresh session when no acpSessionId is stored', async () => {
     const agent = makeAgent('codex'); // no acpSessionId
-    const conn: AcpConnection = (agent as any).connection;
+    const conn = getAgentState(agent).connection;
 
-    const resumeSession = vi.spyOn(conn, 'resumeSession').mockResolvedValue({} as any);
-    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'brand-new' } as any);
+    const resumeSession = vi.spyOn(conn, 'resumeSession').mockResolvedValue({});
+    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'brand-new' });
 
-    await (agent as any).createOrResumeSession();
+    await getAgentState(agent).createOrResumeSession();
 
     expect(resumeSession).not.toHaveBeenCalled();
     expect(newSession).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ mcpServers: [] }));
@@ -207,30 +234,32 @@ describe('AcpAgent.createOrResumeSession — Codex routing', () => {
 
   it('updates acpSessionId when resume returns a new session ID', async () => {
     const agent = makeAgent('codex', 'old-session');
-    const conn: AcpConnection = (agent as any).connection;
+    const agentState = getAgentState(agent);
+    const conn = agentState.connection;
     const onSessionIdUpdate = vi.fn();
-    (agent as any).onSessionIdUpdate = onSessionIdUpdate;
+    agentState.onSessionIdUpdate = onSessionIdUpdate;
 
-    vi.spyOn(conn, 'resumeSession').mockResolvedValue({ sessionId: 'rotated-session' } as any);
+    vi.spyOn(conn, 'resumeSession').mockResolvedValue({ sessionId: 'rotated-session' });
 
-    await (agent as any).createOrResumeSession();
+    await agentState.createOrResumeSession();
 
-    expect((agent as any).extra.acpSessionId).toBe('rotated-session');
+    expect(agentState.extra.acpSessionId).toBe('rotated-session');
     expect(onSessionIdUpdate).toHaveBeenCalledWith('rotated-session');
   });
 
   it('bypasses Hermes resume and creates a fresh session', async () => {
     const agent = makeAgent('hermes', 'session-hermes-1');
-    const conn: AcpConnection = (agent as any).connection;
+    const agentState = getAgentState(agent);
+    const conn = agentState.connection;
 
-    const resumeSession = vi.spyOn(conn, 'resumeSession').mockResolvedValue({ sessionId: 'session-hermes-1' } as any);
-    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'fresh-hermes-session' } as any);
+    const resumeSession = vi.spyOn(conn, 'resumeSession').mockResolvedValue({ sessionId: 'session-hermes-1' });
+    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'fresh-hermes-session' });
 
-    await (agent as any).createOrResumeSession();
+    await agentState.createOrResumeSession();
 
     expect(resumeSession).not.toHaveBeenCalled();
     expect(newSession).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ mcpServers: [] }));
-    expect((agent as any).extra.acpSessionId).toBe('fresh-hermes-session');
+    expect(agentState.extra.acpSessionId).toBe('fresh-hermes-session');
   });
 });
 
@@ -279,21 +308,21 @@ describe('parseInitializeResult (top-level modes)', () => {
 describe('AcpConnection.resumeSession capability routing', () => {
   /** Set parsed initializeResult on a connection (mirrors what initialize() does). */
   function setInitializeResponse(conn: AcpConnection, response: Record<string, unknown>): void {
-    (conn as any).initializeResult = parseInitializeResult(response);
+    getConnectionState(conn).initializeResult = parseInitializeResult(response);
   }
 
-  const makeConnection = (backend: AcpBackend): AcpConnection => {
+  const makeResumeConnection = (backend: AcpBackend): AcpConnection => {
     const conn = new AcpConnection();
-    (conn as any).backend = backend;
+    getConnectionState(conn).backend = backend;
     return conn;
   };
 
   it('prefers loadSession for load-capable non-claude backends', async () => {
-    const conn = makeConnection('opencode');
+    const conn = makeResumeConnection('opencode');
     setInitializeResponse(conn, { agentCapabilities: { loadSession: true } });
 
-    const loadSession = vi.spyOn(conn, 'loadSession').mockResolvedValue({ sessionId: 's1' } as any);
-    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'fresh' } as any);
+    const loadSession = vi.spyOn(conn, 'loadSession').mockResolvedValue({ sessionId: 's1' });
+    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'fresh' });
 
     const result = await conn.resumeSession('s1', '/tmp', { mcpServers: [] });
 
@@ -303,11 +332,11 @@ describe('AcpConnection.resumeSession capability routing', () => {
   });
 
   it('uses newSession for claude backend even when loadSession is declared', async () => {
-    const conn = makeConnection('claude');
+    const conn = makeResumeConnection('claude');
     setInitializeResponse(conn, { agentCapabilities: { loadSession: true } });
 
-    const loadSession = vi.spyOn(conn, 'loadSession').mockResolvedValue({ sessionId: 's1' } as any);
-    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 's1' } as any);
+    const loadSession = vi.spyOn(conn, 'loadSession').mockResolvedValue({ sessionId: 's1' });
+    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 's1' });
 
     await conn.resumeSession('s1', '/tmp', { mcpServers: [] });
 
@@ -322,13 +351,13 @@ describe('AcpConnection.resumeSession capability routing', () => {
   });
 
   it('uses newSession for _meta.claudeCode capability', async () => {
-    const conn = makeConnection('codebuddy');
+    const conn = makeResumeConnection('codebuddy');
     setInitializeResponse(conn, {
       agentCapabilities: { loadSession: true, _meta: { claudeCode: { promptQueueing: true } } },
     });
 
-    const loadSession = vi.spyOn(conn, 'loadSession').mockResolvedValue({ sessionId: 's1' } as any);
-    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 's1' } as any);
+    const loadSession = vi.spyOn(conn, 'loadSession').mockResolvedValue({ sessionId: 's1' });
+    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 's1' });
 
     await conn.resumeSession('s1', '/tmp', { mcpServers: [] });
 
@@ -337,11 +366,11 @@ describe('AcpConnection.resumeSession capability routing', () => {
   });
 
   it('falls back to newSession when loadSession fails', async () => {
-    const conn = makeConnection('qwen');
+    const conn = makeResumeConnection('qwen');
     setInitializeResponse(conn, { agentCapabilities: { loadSession: true } });
 
     vi.spyOn(conn, 'loadSession').mockRejectedValue(new Error('load failed'));
-    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'fresh' } as any);
+    const newSession = vi.spyOn(conn, 'newSession').mockResolvedValue({ sessionId: 'fresh' });
 
     const result = await conn.resumeSession('s1', '/tmp', { mcpServers: [] });
 

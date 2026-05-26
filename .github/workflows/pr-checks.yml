@@ -85,6 +85,9 @@ jobs:
       - name: Run prek checks
         run: prek run --from-ref origin/${{ env.PR_BASE_REF }} --to-ref HEAD
 
+      - name: Block new lint warnings in changed files
+        run: bun run lint:no-new-warnings -- --from-ref origin/${{ env.PR_BASE_REF }} --to-ref HEAD
+
   # Job 2: Unit tests across all platforms
   unit-tests:
     name: Unit Tests (${{ matrix.os }})

@@ -9,6 +9,29 @@ const lark = require('@larksuiteoapi/node-sdk') as LarkSdk;
 type LarkClientInstance = InstanceType<LarkSdk['Client']>;
 type LarkWsClientInstance = InstanceType<LarkSdk['WSClient']>;
 type LarkEventDispatcherInstance = InstanceType<LarkSdk['EventDispatcher']>;
+type LarkMessageEvent = {
+  event?: {
+    message?: { message_id?: string };
+    sender?: { sender_id?: { user_id?: string; open_id?: string } };
+  };
+};
+type LarkBotMenuEvent = {
+  event?: {
+    operator?: { operator_id?: { user_id?: string; open_id?: string } };
+    event_key?: string;
+    timestamp?: string;
+    chat_id?: string;
+  };
+};
+type LarkCardActionEvent = {
+  event?: {
+    action?: unknown;
+    operator?: { user_id?: string; open_id?: string };
+    token?: string;
+  };
+};
+
+const getErrorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 import type { BotInfo, IChannelPluginConfig, IUnifiedOutgoingMessage, PluginType } from '../../types';
 import { BasePlugin } from '../BasePlugin';
@@ -302,10 +325,15 @@ export class LarkPlugin extends BasePlugin {
           content: JSON.stringify(cardContent),
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Ignore common errors
-      const errorCode = error?.response?.data?.code || error?.code;
-      const errorMsg = error?.response?.data?.msg || error?.message || '';
+      const larkError = error as {
+        response?: { data?: { code?: number; msg?: string } };
+        code?: number;
+        message?: string;
+      };
+      const errorCode = larkError.response?.data?.code || larkError.code;
+      const errorMsg = larkError.response?.data?.msg || larkError.message || '';
 
       // Ignore "message not changed" or "not modified" errors
       if (errorCode === 230002 || errorMsg.includes('not modified')) {
@@ -357,10 +385,11 @@ export class LarkPlugin extends BasePlugin {
   /**
    * Handle incoming message events
    */
-  private async handleMessageEvent(event: any): Promise<void> {
+  private async handleMessageEvent(event: unknown): Promise<void> {
     try {
-      const message = event?.event?.message;
-      const sender = event?.event?.sender;
+      const payload = event as LarkMessageEvent;
+      const message = payload.event?.message;
+      const sender = payload.event?.sender;
 
       if (!message || !sender) {
         console.warn('[LarkPlugin] Invalid message event:', event);
@@ -429,11 +458,12 @@ export class LarkPlugin extends BasePlugin {
    * Handle bot menu click events (application.bot.menu_v6)
    * Feishu custom menu triggers this event when clicked
    */
-  private async handleBotMenuEvent(event: any): Promise<void> {
+  private async handleBotMenuEvent(event: unknown): Promise<void> {
     try {
-      const operator = event?.event?.operator;
-      const eventKey = event?.event?.event_key;
-      const timestamp = event?.event?.timestamp;
+      const payload = event as LarkBotMenuEvent;
+      const operator = payload.event?.operator;
+      const eventKey = payload.event?.event_key;
+      const timestamp = payload.event?.timestamp;
 
       if (!operator || !eventKey) {
         console.warn('[LarkPlugin] Invalid bot menu event:', event);
@@ -457,7 +487,7 @@ export class LarkPlugin extends BasePlugin {
       this.activeUsers.add(userId);
 
       // Get chat_id from event (for sending response)
-      const chatId = event?.event?.chat_id || userId;
+      const chatId = payload.event?.chat_id || userId;
 
       // Map event_key to action
       const buttonAction = this.getMenuButtonAction(eventKey);
@@ -500,11 +530,12 @@ export class LarkPlugin extends BasePlugin {
   /**
    * Handle card action callbacks (button clicks)
    */
-  private async handleCardAction(event: any): Promise<void> {
+  private async handleCardAction(event: unknown): Promise<void> {
     try {
-      const action = event?.event?.action;
-      const operator = event?.event?.operator;
-      const eventToken = event?.event?.token;
+      const payload = event as LarkCardActionEvent;
+      const action = payload.event?.action;
+      const operator = payload.event?.operator;
+      const eventToken = payload.event?.token;
 
       if (!action || !operator) {
         console.warn('[LarkPlugin] Invalid card action event:', event);
@@ -651,10 +682,10 @@ export class LarkPlugin extends BasePlugin {
       });
 
       return { success: true, botInfo: { name: 'Lark Bot' } };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        error: error.message || 'Failed to connect to Lark API',
+        error: getErrorMessage(error) || 'Failed to connect to Lark API',
       };
     }
   }

@@ -34,6 +34,7 @@ import { useAionrsModelSelection } from '../platforms/aionrs/useAionrsModelSelec
 import { usePreviewContext } from '../Preview';
 import StarOfficeMonitorCard from '../platforms/openclaw/StarOfficeMonitorCard.tsx';
 import ConversationSkillsIndicator from './ConversationSkillsIndicator';
+import { useProjectAssetInspectorState } from '@/renderer/pages/conversation/hooks/useProjectAssetInspectorSync';
 // import SkillRuleGenerator from './components/SkillRuleGenerator'; // Temporarily hidden
 
 /** Check whether a specific skill is loaded for the conversation */
@@ -101,6 +102,21 @@ const getRuntimeWorkspace = (conversation?: TChatConversation): string => {
   return conversation?.extra?.workspace || '';
 };
 
+const getProjectAssetCategoryTitleKey = (category: import('@/common/projectAssets').ProjectAssetCategory) => {
+  switch (category) {
+    case 'images':
+      return 'conversation.history.projectAssetsCategoryImages';
+    case 'documents':
+      return 'conversation.history.projectAssetsCategoryDocuments';
+    case 'pdfs':
+      return 'conversation.history.projectAssetsCategoryPdfs';
+    case 'code-text':
+      return 'conversation.history.projectAssetsCategoryCodeText';
+    case 'other':
+      return 'conversation.history.projectAssetsCategoryOther';
+  }
+};
+
 const _AddNewConversation: React.FC<{ conversation: TChatConversation }> = ({ conversation }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -154,6 +170,7 @@ const GeminiConversationPanel: React.FC<{
   sliderTitle: React.ReactNode;
   hideSendBox?: boolean;
 }> = ({ conversation, sliderTitle, hideSendBox }) => {
+  const { t } = useTranslation();
   // Save model selection to conversation via IPC
   const onSelectModel = useCallback(
     async (_provider: IProvider, modelName: string) => {
@@ -168,7 +185,10 @@ const GeminiConversationPanel: React.FC<{
   const modelSelection = useGeminiModelSelection({ initialModel: conversation.model, onSelectModel });
   const assignedWorkspace = getAssignedWorkspace(conversation);
   const runtimeWorkspace = getRuntimeWorkspace(conversation);
-  const workspaceEnabled = Boolean(runtimeWorkspace);
+  const { isActive: isProjectAssetInspectorActive, selection: projectAssetSelection } = useProjectAssetInspectorState(
+    conversation.projectId
+  );
+  const workspaceEnabled = Boolean(runtimeWorkspace) || isProjectAssetInspectorActive;
 
   // 使用统一的 Hook 获取预设助手信息 / Use unified hook for preset assistant info
   const { info: presetAssistantInfo } = usePresetAssistantInfo(conversation);
@@ -176,7 +196,16 @@ const GeminiConversationPanel: React.FC<{
 
   const chatLayoutProps = {
     title: conversation.name,
-    siderTitle: sliderTitle,
+    siderTitle:
+      isProjectAssetInspectorActive && projectAssetSelection ? (
+        <div className='flex items-center justify-between'>
+          <span className='text-16px font-bold text-t-primary'>
+            {t(getProjectAssetCategoryTitleKey(projectAssetSelection.category))}
+          </span>
+        </div>
+      ) : (
+        sliderTitle
+      ),
     sider: <ChatSider conversation={conversation} />,
     headerLeft: <GeminiModelSelector selection={modelSelection} />,
     headerExtra: (
@@ -190,6 +219,7 @@ const GeminiConversationPanel: React.FC<{
       </div>
     ),
     workspaceEnabled,
+    preferredWorkspaceOpenKey: projectAssetSelection?.openSequence,
     backend: 'gemini' as const,
     presetAssistant: presetAssistantInfo ? { ...presetAssistantInfo, id: geminiAssistantId } : undefined,
   };
@@ -215,6 +245,7 @@ const AionrsConversationPanel: React.FC<{ conversation: AionrsConversation; slid
   conversation,
   sliderTitle,
 }) => {
+  const { t } = useTranslation();
   const onSelectModel = useCallback(
     async (_provider: IProvider, modelName: string) => {
       const selected = { ..._provider, useModel: modelName } as TProviderWithModel;
@@ -230,15 +261,26 @@ const AionrsConversationPanel: React.FC<{ conversation: AionrsConversation; slid
     initialModel: conversation.model,
     onSelectModel,
   });
-  const assignedWorkspace = getAssignedWorkspace(conversation);
   const runtimeWorkspace = getRuntimeWorkspace(conversation);
-  const workspaceEnabled = Boolean(runtimeWorkspace);
+  const { isActive: isProjectAssetInspectorActive, selection: projectAssetSelection } = useProjectAssetInspectorState(
+    conversation.projectId
+  );
+  const workspaceEnabled = Boolean(runtimeWorkspace) || isProjectAssetInspectorActive;
   const { info: presetAssistantInfo } = usePresetAssistantInfo(conversation);
   const aionrsAssistantId = resolveAssistantConfigId(conversation) ?? undefined;
 
   const chatLayoutProps = {
     title: conversation.name,
-    siderTitle: sliderTitle,
+    siderTitle:
+      isProjectAssetInspectorActive && projectAssetSelection ? (
+        <div className='flex items-center justify-between'>
+          <span className='text-16px font-bold text-t-primary'>
+            {t(getProjectAssetCategoryTitleKey(projectAssetSelection.category))}
+          </span>
+        </div>
+      ) : (
+        sliderTitle
+      ),
     sider: <ChatSider conversation={conversation} />,
     headerLeft: <AionrsModelSelector selection={modelSelection} />,
     headerExtra: (
@@ -252,6 +294,7 @@ const AionrsConversationPanel: React.FC<{ conversation: AionrsConversation; slid
       </div>
     ),
     workspaceEnabled,
+    preferredWorkspaceOpenKey: projectAssetSelection?.openSequence,
     backend: 'aionrs' as const,
     presetAssistant: presetAssistantInfo ? { ...presetAssistantInfo, id: aionrsAssistantId } : undefined,
   };
@@ -277,7 +320,10 @@ const ChatConversation: React.FC<{
   const { openPreview } = usePreviewContext();
   const assignedWorkspace = getAssignedWorkspace(conversation);
   const runtimeWorkspace = getRuntimeWorkspace(conversation);
-  const workspaceEnabled = Boolean(runtimeWorkspace);
+  const { isActive: isProjectAssetInspectorActive, selection: projectAssetSelection } = useProjectAssetInspectorState(
+    conversation?.projectId
+  );
+  const workspaceEnabled = Boolean(runtimeWorkspace) || isProjectAssetInspectorActive;
 
   const isGeminiConversation = conversation?.type === 'gemini';
   const isAionrsConversation = conversation?.type === 'aionrs';
@@ -370,6 +416,20 @@ const ChatConversation: React.FC<{
       </div>
     );
   }, [t]);
+
+  const inspectorSliderTitle = useMemo(() => {
+    if (!isProjectAssetInspectorActive || !projectAssetSelection) {
+      return sliderTitle;
+    }
+
+    return (
+      <div className='flex items-center justify-between'>
+        <span className='text-16px font-bold text-t-primary'>
+          {t(getProjectAssetCategoryTitleKey(projectAssetSelection.category))}
+        </span>
+      </div>
+    );
+  }, [isProjectAssetInspectorActive, projectAssetSelection, sliderTitle, t]);
 
   // For ACP/Codex conversations, use AcpModelSelector that can show/switch models.
   // For other non-Gemini conversations, show disabled GeminiModelSelector.
@@ -466,11 +526,12 @@ const ChatConversation: React.FC<{
       {...chatLayoutProps}
       headerLeft={modelSelector}
       headerExtra={headerExtraNode}
-      siderTitle={sliderTitle}
+      siderTitle={inspectorSliderTitle}
       sider={<ChatSider conversation={conversation} />}
       workspaceEnabled={workspaceEnabled}
       workspacePath={assignedWorkspace}
       conversationId={conversation?.id}
+      preferredWorkspaceOpenKey={projectAssetSelection?.openSequence}
     >
       {conversationNode}
     </ChatLayout>

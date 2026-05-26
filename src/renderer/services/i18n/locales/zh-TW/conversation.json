@@ -92,6 +92,11 @@
     "projectMemoryTypeProject": "專案規範",
     "projectMemoryTypeReference": "參考說明",
     "projectMemoryTypeFeedback": "回饋沉澱",
+    "projectAssetsCategoryImages": "Images",
+    "projectAssetsCategoryDocuments": "Documents",
+    "projectAssetsCategoryPdfs": "PDFs",
+    "projectAssetsCategoryCodeText": "Code & Text",
+    "projectAssetsCategoryOther": "Other files",
     "deleteSuccess": "刪除成功",
     "deleteFailed": "刪除失敗"
   },
